@@ -19,6 +19,8 @@ In general, all solutions can be invoked in both of the following ways:
 
 Some may additionally support other ways:
 
+* 1 (Manhattan Distance): Pass the entire sequence of instructions as a single argument in ARGV.
+
 # Posting schedule and policy
 
 Before I post my day N solution, the day N leaderboard **must** be full.
