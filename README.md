@@ -20,6 +20,9 @@ In general, all solutions can be invoked in both of the following ways:
 Some may additionally support other ways:
 
 * 1 (Manhattan Distance): Pass the entire sequence of instructions as a single argument in ARGV.
+* 5 (MD5 Door): Pass the door ID in ARGV.
+  Due to long running time, by default the indices generating five zeroes have been pre-computed for the default door ID.
+  To redo the computation (necessary if using a different ID), pass the `-r` flag.
 
 # Posting schedule and policy
 
