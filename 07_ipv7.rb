@@ -1,11 +1,4 @@
-module IPv7; refine String do
-  def has_abba?
-    scan(/(.)(.)\2\1/).any? { |abba| abba[0] != abba[1] }
-  end
-end end
-
-using IPv7
-
+ABBA = /(.)(?!\1)(.)\2\1/
 HYPERNET = /\[[^\]]+\]/
 
 addrs = ARGF.map { |addr| [
@@ -14,7 +7,7 @@ addrs = ARGF.map { |addr| [
 ].freeze }.freeze
 
 puts addrs.count { |hypernets, supernets|
-  supernets.has_abba? && hypernets.none? { |hn| hn.has_abba? }
+  supernets.match?(ABBA) && hypernets.none?(ABBA)
 }
 
 puts addrs.count { |hypernets, supernets|
