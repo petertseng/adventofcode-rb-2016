@@ -23,6 +23,7 @@ Some may additionally support other ways:
 * 5 (MD5 Door): Pass the door ID in ARGV.
   Due to long running time, by default the indices generating five zeroes have been pre-computed for the default door ID.
   To redo the computation (necessary if using a different ID), pass the `-r` flag.
+* 8 (Two-Factor Authentication): The `-w` flag may be used to change the width of the screen.
 
 # Posting schedule and policy
 

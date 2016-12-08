@@ -1,4 +1,7 @@
-WIDTH = 50
+WIDTH = begin
+  arg = ARGV.find { |x| x.start_with?('-w') }
+  arg ? Integer(ARGV.delete(arg)[2..-1]) : 50
+end
 HEIGHT = 6
 
 screen = Array.new(HEIGHT) { Array.new(WIDTH, false) }.freeze
