@@ -24,6 +24,7 @@ Some may additionally support other ways:
   Due to long running time, by default the indices generating five zeroes have been pre-computed for the default door ID.
   To redo the computation (necessary if using a different ID), pass the `-r` flag.
 * 8 (Two-Factor Authentication): The `-w` flag may be used to change the width of the screen.
+* 9 (Compression): Pass the compressed text in ARGV.
 
 # Posting schedule and policy
 
