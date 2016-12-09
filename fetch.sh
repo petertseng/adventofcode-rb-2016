@@ -21,13 +21,13 @@ fi
 daypad=$(seq -f%02g $day $day)
 
 if [ "$yes" = "1" ]; then
-  if [ -f input ]; then
+  if [ -f input$day ]; then
     echo "THE INPUT ALREADY EXISTS!!!"
   else
-    curl --cookie session=$(cat secrets/session) -o input http://adventofcode.com/2016/day/$day/input
+    curl --cookie session=$(cat secrets/session) -o input$day http://adventofcode.com/2016/day/$day/input
   fi
 else
-  curl -o input http://example.com
+  curl -o input$day http://example.com
 fi
 
 if [ -f $daypad.rb ]; then
@@ -37,7 +37,7 @@ if [ -f $daypad.rb ]; then
 fi
 
 if [ -f TEMPLATE.rb ]; then
-  cat TEMPLATE.rb input > $daypad.rb
+  cat TEMPLATE.rb input$day > $daypad.rb
 elif [ -f t.rb ]; then
-  cat t.rb input > $daypad.rb
+  cat t.rb input$day > $daypad.rb
 fi
