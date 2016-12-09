@@ -49,6 +49,7 @@ if FIRST_N_ROWS > 0
       current_offset = prev - to_receive
       rotate_row[row, current: current_offset]
     end
+    sizes[row] -= 1
     prev_index[row] = to_receive
   }
 
@@ -62,55 +63,41 @@ if FIRST_N_ROWS > 0
 
   case FIRST_N_ROWS
   when 2
-    sends = []
-
     WIDTH.times { |from_left|
       pos = WIDTH - 1 - from_left
       clears = positions_to_clear.map { |ptc| ptc.last == pos }
       case clears
       when [true, true]
-        # Vacate both. Find best pair to give it to later.
-        sends << {pos: pos, receivers: :unknown}
+        # Vacate both. Find best pair to give it to.
+        largest_other = (2...HEIGHT).max_by { |i| sizes[i] }
+        neighbour = case largest_other
+                    when 2; 3
+                      # Middle rows always prefer each other,
+                      # since edge rows are forced in more situations.
+                    when 3; 4
+                    when 4; 3
+                    when 5; 4
+                    end
+        [largest_other, neighbour].each { |row| align_row[row, to_receive: pos] }
+        puts "rotate column x=#{pos} by #{[largest_other, neighbour].min}"
       when [true, false]
         # We can only shift it down 1 and give it to row 2.
-        sends << {pos: pos, shift: 1, receivers: [2].freeze}.freeze
-        sizes[2] -= 1
+        align_row[2, to_receive: pos]
+        puts "rotate column x=#{pos} by 1"
       when [false, true]
         # We can only shift it up 1 and give it to row (HEIGHT - 1).
-        sends << {pos: pos, shift: HEIGHT - 1, receivers: [HEIGHT - 1].freeze}.freeze
-        sizes[HEIGHT - 1] -= 1
+        align_row[HEIGHT - 1, to_receive: pos]
+        puts "rotate column x=#{pos} by #{HEIGHT - 1}"
       when [false, false]
         # Nothing.
       end
 
       positions_to_clear.zip(clears) { |ptc, clear| ptc.pop if clear }
     }
-
-    sends.select { |s| s[:receivers] == :unknown }.each { |send|
-      largest_other = (2...HEIGHT).max_by { |i| sizes[i] }
-      choices = case largest_other
-                when 2; [3]
-                when 3; [4, 2]
-                when 4; [3, 5]
-                when 5; [4]
-                end
-      neighbour = choices.max_by { |c| sizes[c] }
-      receivers = [largest_other, neighbour].sort.freeze
-      receivers.each { |row| sizes[row] -= 1 }
-      send[:receivers] = receivers
-      send[:shift] = receivers.min
-      send.freeze
-    }
-
-    sends.each { |send|
-      send[:receivers].each { |row| align_row[row, to_receive: send[:pos]] }
-      puts "rotate column x=#{send[:pos]} by #{send[:shift]}"
-    }
   when 1
     positions_to_clear.first.reverse_each { |pos|
       largest_other = (1...HEIGHT).max_by { |i| sizes[i] }
       align_row[largest_other, to_receive: pos]
-      sizes[largest_other] -= 1
       puts "rotate column x=#{pos} by #{largest_other}"
     }
   else raise "Optimisation level #{FIRST_N_ROWS} unsupported"
