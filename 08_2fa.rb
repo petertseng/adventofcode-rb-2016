@@ -4,32 +4,37 @@ WIDTH = begin
 end
 HEIGHT = 6
 
-screen = Array.new(HEIGHT) { Array.new(WIDTH, false) }.freeze
+physical_screen = Array.new(HEIGHT) { Array.new(WIDTH, false) }.freeze
+virtual_screen = Array.new(HEIGHT) { |r|
+  Array.new(WIDTH) { |c| ->{ physical_screen[r][c] = true } }
+}.freeze
 
-ARGF.each_line { |l|
+ARGF.each_line.reverse_each { |l|
   words = l.split
   case words[0]
   when 'rect'
     cols, rows = words[1].split(?x).map(&method(:Integer))
     rows.times { |r|
-      cols.times { |c| screen[r][c] = true }
+      cols.times { |c| virtual_screen[r][c][] }
     }
   when 'rotate'
     idx = Integer(words[2][/\d+/])
-    amt = -Integer(words[4][/\d+/])
+    # we're going backwards so we have to rotate backwards too!
+    # positive amount is left/up, which is indeed backwards.
+    amt = Integer(words[4][/\d+/])
     case words[1]
     when 'row'
-      screen[idx].rotate!(amt)
+      virtual_screen[idx].rotate!(amt)
     when 'column'
-      rotated = screen.map { |row| row[idx] }.rotate(amt)
-      screen.zip(rotated) { |row, pixel| row[idx] = pixel }
+      rotated = virtual_screen.map { |row| row[idx] }.rotate(amt)
+      virtual_screen.zip(rotated) { |row, pixel| row[idx] = pixel }
     else raise "Rotate #{words[1]} unknown"
     end
   else raise "Operation #{words[0]} unknown"
   end
 }
 
-puts screen.sum { |row| row.count(true) }
-screen.each { |r|
+puts physical_screen.sum { |row| row.count(true) }
+physical_screen.each { |r|
   puts r.map { |cell| cell ? ?# : ' ' }.join
 }
