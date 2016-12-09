@@ -1,2 +1,2 @@
 secrets
-input
+input[0-9]*
