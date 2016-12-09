@@ -30,6 +30,12 @@ else
   curl -o input http://example.com
 fi
 
+if [ -f $daypad.rb ]; then
+  backup="$daypad-$(date +%s).rb"
+  echo "I think we should back up $daypad.rb to $backup!"
+  mv $daypad.rb $backup
+fi
+
 if [ -f TEMPLATE.rb ]; then
   cat TEMPLATE.rb input > $daypad.rb
 elif [ -f t.rb ]; then
