@@ -52,6 +52,26 @@ if FIRST_N_ROWS > 0
     prev_index[row] = to_receive
   }
 
+  best_by_gap = ->(choices, pos, if_present, if_absent) {
+    choices.max_by { |choice|
+      if (prev = prev_index[choice])
+        current_offset = prev - pos
+        want = rows[choice][:gaps].first || rows[choice][:leftmost_gap]
+        if current_offset == want
+          [3, if_present[choice]]
+        elsif current_offset > want
+          # too low can fix itself (pos will decrease, current_offset will increase, want stays the same)
+          # too high can't, so we might as well shift on the too-high row if possible.
+          [1, if_present[choice]]
+        else
+          [0, if_present[choice]]
+        end
+      else
+        [2, if_absent[choice]]
+      end
+    }
+  }
+
   positions_to_clear = (0...FIRST_N_ROWS).map { |r|
     (0...WIDTH).reject { |i| cells[r][i] }.map { |x|
       (x - rows[r][:leftmost_gap]) % WIDTH
@@ -91,23 +111,7 @@ if FIRST_N_ROWS > 0
                   when 4; [3, 5]
                   when 5; [4]
                   end
-        neighbour = choices.max_by { |choice|
-          if (prev = prev_index[choice])
-            current_offset = prev - send[:pos]
-            want = rows[choice][:gaps].first || rows[choice][:leftmost_gap]
-            if current_offset == want
-              [3, sizes[choice]]
-            elsif current_offset > want
-              # too low can fix itself (pos will decrease, current_offset will increase, want stays the same)
-              # too high can't, so we might as well shift on the too-high row if possible.
-              [1, sizes[choice]]
-            else
-              [0, sizes[choice]]
-            end
-          else
-            [2, sizes[choice]]
-          end
-        }
+        neighbour = best_by_gap[choices, send[:pos], sizes, sizes]
         receivers = [largest_other, neighbour].sort.freeze
         receivers.each { |row| sizes[row] -= 1 }
         send[:shift] = receivers.min
