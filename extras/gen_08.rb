@@ -121,11 +121,26 @@ if FIRST_N_ROWS > 0
       puts "rotate column x=#{send[:pos]} by #{send[:shift]}"
     }
   when 1
-    positions_to_clear.first.reverse_each { |pos|
+    positions_to_clear = positions_to_clear.first.reverse
+    cells_needed = positions_to_clear.size.times.with_object(Hash.new(0)) { |_, freq|
       largest_other = (1...HEIGHT).max_by { |i| sizes[i] }
-      align_row[largest_other, to_receive: pos]
+      freq[largest_other] += 1
       sizes[largest_other] -= 1
-      puts "rotate column x=#{pos} by #{largest_other}"
+    }
+    positions_to_clear.each { |pos|
+      choices = (1...HEIGHT).select { |r| cells_needed[r] > 0 }
+      # For reasons I can't explain, this seemed to do the best.
+      # It did better than:
+      # * number of cells needed
+      # * number of immediately-next gaps that match with positions_to_clear
+      # Maybe it's just a peculiarity of the inputs I test on?
+      remaining_gaps = choices.to_h { |choice|
+        [choice, rows[choice][:gaps].drop(1).map { |x| -x }]
+      }
+      receiver = best_by_gap[choices, pos, remaining_gaps, cells_needed]
+      cells_needed[receiver] -= 1
+      align_row[receiver, to_receive: pos]
+      puts "rotate column x=#{pos} by #{receiver}"
     }
   else raise "Optimisation level #{FIRST_N_ROWS} unsupported"
   end
