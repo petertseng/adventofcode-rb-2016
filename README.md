@@ -25,6 +25,8 @@ Some may additionally support other ways:
   To redo the computation (necessary if using a different ID), pass the `-r` flag.
 * 8 (Two-Factor Authentication): The `-w` flag may be used to change the width of the screen.
 * 9 (Compression): Pass the compressed text in ARGV.
+* 11 (Chips and Generators): The `-t` flag uses the test input.
+  The `-v` flag causes queue size counts to be printed at every move count.
 
 # Posting schedule and policy
 
