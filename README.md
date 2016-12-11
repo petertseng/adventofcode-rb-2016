@@ -26,6 +26,7 @@ Some may additionally support other ways:
 * 8 (Two-Factor Authentication): The `-w` flag may be used to change the width of the screen.
 * 9 (Compression): Pass the compressed text in ARGV.
 * 11 (Chips and Generators): The `-t` flag uses the test input.
+  The `-s` flag can be used to set the starting floor.
   The `-l` flag lists the moves in the solution.
   The `-v` flag causes queue size counts to be printed at every move count.
 
