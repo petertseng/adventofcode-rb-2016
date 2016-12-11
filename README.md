@@ -28,6 +28,7 @@ Some may additionally support other ways:
 * 11 (Chips and Generators): The `-t` flag uses the test input.
   The `-s` flag can be used to set the starting floor.
   The `-l` flag lists the moves in the solution.
+  Using the flag twice (`ll`) lists each floor state in the solution.
   The `-v` flag causes queue size counts to be printed at every move count.
 
 # Posting schedule and policy
