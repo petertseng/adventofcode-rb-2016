@@ -1,3 +1,9 @@
+START_FLOOR = begin
+  arg = ARGV.find { |x| x.start_with?(?-) && x.include?(?s) }
+  # No need to delete here, will get deleted later.
+  arg ? Integer(arg[(arg.index(?s) + 1)..-1]) : 0
+end
+
 module Floor; refine Array do
   def chips_and_gens
     group_by(&:first).values_at(:chip, :gen).map { |l|
@@ -40,10 +46,10 @@ def moves_to_assemble(input, verbose: false)
   input.each { |contents| contents.each(&:freeze) }
 
   # moves, state, floor
-  move_queue = [[0, input, 0]]
+  move_queue = [[0, input, START_FLOOR]]
 
   # [state, floor] -> [state, floor, moved_items]
-  prev = {[input.pairs, 0] => :start}
+  prev = {[input.pairs, START_FLOOR] => :start}
 
   max_moves = 0
 
