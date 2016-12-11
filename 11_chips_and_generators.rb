@@ -112,13 +112,24 @@ end
 verbose = has_flag?(?v)
 part_1_only = has_flag?(?1)
 list = has_flag?(?l)
+show_state = has_flag?('ll')
 
 solve = ->(input) {
   moves = moves_to_assemble(input, verbose: verbose)
   puts moves.size
-  if list
+  if list || show_state
+    state = input
+    floor = START_FLOOR
     moves.each_with_index { |(moved_items, floor_moved_to), i|
-      puts "#{i + 1}: #{moved_items} -> #{floor_moved_to}"
+      puts "#{i + 1}: #{moved_items} -> #{floor_moved_to}" if list
+      state = state.move(moved_items, from: floor, to: floor_moved_to)
+      floor = floor_moved_to
+      if show_state
+        state.reverse_each.with_index { |items, distance_from_top|
+          puts "#{state.size - distance_from_top}: #{items}"
+        }
+        puts
+      end
     }
   end
 }
