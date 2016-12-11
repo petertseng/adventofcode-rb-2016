@@ -1,5 +1,3 @@
-require 'set'
-
 module Floor; refine Array do
   def chips_and_gens
     group_by(&:first).values_at(:chip, :gen).map { |l|
@@ -44,8 +42,8 @@ def moves_to_assemble(input, verbose: false)
   # moves, state, floor
   move_queue = [[0, input, 0]]
 
-  # state, floor
-  seen = Set.new([input.pairs, 0])
+  # [state, floor] -> [state, floor, moved_items]
+  prev = {[input.pairs, 0] => :start}
 
   max_moves = 0
 
@@ -83,7 +81,20 @@ def moves_to_assemble(input, verbose: false)
         items
       }
 
-      return moves_so_far + 1 if new_state[0..-2].all?(&:empty?)
+      if new_state[0..-2].all?(&:empty?)
+        state_pair = state.pairs
+        floor = elevator
+
+        prev_moves = moves_so_far.times.map {
+          old_state, old_floor, moved = prev[[state_pair, floor]]
+
+          state_pair = old_state
+          [moved, floor].tap { floor = old_floor }
+        }
+
+        return prev_moves.reverse << [moved_items, floor_moved_to]
+      end
+
       next unless new_state.legal?
 
       # Set ratings BEFORE pruning seen states.
@@ -93,9 +104,9 @@ def moves_to_assemble(input, verbose: false)
       best_negative = rating if rating < 0
 
       # MOST IMPORTANT OPTIMISATION: ALL PAIRS ARE INTERCHANGEABLE
-      state_pairs = new_state.pairs
-      next if seen.include?([state_pairs, floor_moved_to])
-      seen.add([state_pairs, floor_moved_to])
+      prev_key = [new_state.pairs, floor_moved_to]
+      next if prev.has_key?(prev_key)
+      prev[prev_key] = [state.pairs, elevator, moved_items]
 
       move_queue << [moves_so_far + 1, new_state, floor_moved_to]
     }
@@ -108,6 +119,18 @@ end
 
 verbose = has_flag?(?v)
 part_1_only = has_flag?(?1)
+list = has_flag?(?l)
+
+solve = ->(input) {
+  moves = moves_to_assemble(input, verbose: verbose)
+  puts moves.size
+  if list
+    moves.each_with_index { |(moved_items, floor_moved_to), i|
+      puts "#{i + 1}: #{moved_items} -> #{floor_moved_to}"
+    }
+  end
+}
+
 ARGV.reject! { |a| a.start_with?(?-) }
 
 input = ARGF.map { |l|
@@ -119,7 +142,7 @@ input = ARGF.map { |l|
   }.freeze
 }.freeze
 
-puts moves_to_assemble(input, verbose: verbose)
+solve[input]
 
 input = ([input[0] + [:gen, :chip].flat_map { |type|
   [:elerium, :dilithium].map { |element| [type, element].freeze }
@@ -128,4 +151,4 @@ input = ([input[0] + [:gen, :chip].flat_map { |type|
 # for the example input,
 # adding the two generators to floor 1 would immediately fry the two chips there,
 # so there's no point in doing part 2 for the example input
-puts moves_to_assemble(input, verbose: verbose) unless part_1_only
+solve[input] unless part_1_only
