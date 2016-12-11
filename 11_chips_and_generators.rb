@@ -44,6 +44,15 @@ module State; refine Array do
     }.values.sort.freeze
   end
 
+  def fried_chips
+    flat_map { |contents|
+      chips, gens = contents.partition { |x| x & TYPE_MASK == CHIP }.map { |l|
+        l.map { |i| i >> TYPE_BITS }
+      }
+      gens.empty? ? [] : (chips - gens)
+    }
+  end
+
   def move(moved_items, from:, to:)
     map.with_index { |items, floor|
       next items + moved_items if floor == to
@@ -55,8 +64,10 @@ end end
 
 module Floor; refine Array do
   def legal?
-    chips, gens = partition { |x| x & TYPE_MASK == CHIP }
-    gens.empty? || chips.all? { |c| gens.include?(c | GENERATOR) }
+    chips, gens = partition { |x| x & TYPE_MASK == CHIP }.map { |l|
+      l.map { |i| i >> TYPE_BITS }
+    }
+    (gens - chips).empty? || (chips - gens).empty?
   end
 end end
 
@@ -149,9 +160,13 @@ solve = ->(input, elements) {
     state = input
     floor = START_FLOOR
     moves.each_with_index { |(moved_items, floor_moved_to), i|
-      puts "#{i + 1}: #{moved_items.map(&name)} -> #{floor_moved_to}" if list
       state = state.move(moved_items, from: floor, to: floor_moved_to)
       floor = floor_moved_to
+      unless state.fried_chips.empty?
+        fried = state.fried_chips.map { |fc| name[(fc << TYPE_BITS) | CHIP] }
+        illegal = " !!! ILLEGAL: #{fried} FRIED"
+      end
+      puts "#{i + 1}: #{moved_items.map(&name)} -> #{floor_moved_to}#{illegal}" if list
       if show_state
         state.reverse_each.with_index { |items, distance_from_top|
           puts "#{state.size - distance_from_top}: #{items.map(&name)}"
