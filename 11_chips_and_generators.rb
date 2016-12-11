@@ -72,10 +72,6 @@ def moves_to_assemble(input, verbose: false)
       # If I've already gotten better moves out, bail.
       next if (rating > 0 ? best_positive : best_negative) > rating
 
-      # Don't move a pair down.
-      chips, gens = moved_items.chips_and_gens
-      next unless floor_moved_to > elevator || (chips & gens).empty?
-
       new_state = state.map.with_index { |items, floor|
         next items + moved_items if floor == floor_moved_to
         next items - moved_items if floor == elevator
