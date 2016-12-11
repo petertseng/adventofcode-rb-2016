@@ -4,14 +4,6 @@ START_FLOOR = begin
   arg ? Integer(arg[(arg.index(?s) + 1)..-1]) : 0
 end
 
-module Floor; refine Array do
-  def chips_and_gens
-    group_by(&:first).values_at(:chip, :gen).map { |l|
-      (l || []).map(&:last)
-    }
-  end
-end end
-
 module State; refine Array do
   def moves(elevator)
     items = self[elevator]
@@ -29,18 +21,17 @@ module State; refine Array do
     }.values.map { |p| p.values_at(:gen, :chip).freeze }.sort.freeze
   end
 
-  using Floor
-
   def legal?
     all? { |contents|
-      chips, gens = contents.chips_and_gens
+      chips, gens = contents.group_by(&:first).values_at(:chip, :gen).map { |l|
+        (l || []).map(&:last)
+      }
       gens.empty? || (chips - gens).empty?
     }
   end
 end end
 
 using State
-using Floor
 
 def moves_to_assemble(input, verbose: false)
   input.each { |contents| contents.each(&:freeze) }
