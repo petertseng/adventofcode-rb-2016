@@ -29,6 +29,14 @@ module State; refine Array do
       gens.empty? || (chips - gens).empty?
     }
   end
+
+  def move(moved_items, from:, to:)
+    map.with_index { |items, floor|
+      next items + moved_items if floor == to
+      next items - moved_items if floor == from
+      items
+    }
+  end
 end end
 
 using State
@@ -63,11 +71,7 @@ def moves_to_assemble(input, verbose: false)
       # If I've already gotten better moves out, bail.
       next if (rating > 0 ? best_positive : best_negative) > rating
 
-      new_state = state.map.with_index { |items, floor|
-        next items + moved_items if floor == floor_moved_to
-        next items - moved_items if floor == elevator
-        items
-      }
+      new_state = state.move(moved_items, from: elevator, to: floor_moved_to)
 
       if new_state[0..-2].all?(&:empty?)
         state_pair = state.pairs
