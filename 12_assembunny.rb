@@ -6,7 +6,15 @@ input = ARGF.readlines.map(&:split).map { |words|
   else
     [words[0].to_sym] + args
   end
-}.map(&:freeze).freeze
+}.map(&:freeze)
+
+# optimise away all x += y patterns.
+input.each_cons(3).with_index { |(a, b, c), i|
+  next unless b[0] == :dec && c == [:jnz, b[1], -2] && a[0] == :inc
+  input[i] = [:inc_by, a[1], b[1]].freeze
+}
+
+input.freeze
 
 def run(input, regs)
   pc = -1
@@ -18,6 +26,10 @@ def run(input, regs)
     when :dec; regs[inst[1]] -= 1
     # -1 to offset the standard increment
     when :jnz; pc += inst[2] - 1 if regs[inst[1]] != 0
+    when :inc_by
+      regs[inst[1]] += regs[inst[2]]
+      regs[inst[2]] = 0
+      pc += 2
     else raise "Unknown instruction #{inst}"
     end
   end
