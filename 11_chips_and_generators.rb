@@ -64,10 +64,12 @@ def moves_to_assemble(input, verbose: false)
     best_positive = 0
     best_negative = -1.0 / 0.0
 
+    cleared_floor = state.find_index(&:any?) - 1
+
     state.moves(elevator).sort_by(&:last).reverse_each { |moved_items, floor_moved_to, rating|
       # If you're higher than the highest *consecutive* empty floor,
       # you probably don't want to move things into it.
-      next if floor_moved_to == state.find_index(&:any?) - 1
+      next if floor_moved_to == cleared_floor
 
       # If I've already gotten better moves out, bail.
       next if (rating > 0 ? best_positive : best_negative) > rating
