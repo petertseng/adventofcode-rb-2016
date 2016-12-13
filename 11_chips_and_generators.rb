@@ -21,15 +21,6 @@ module State; refine Array do
     }.values.map { |p| p.values_at(:gen, :chip).freeze }.sort.freeze
   end
 
-  def legal?
-    all? { |contents|
-      chips, gens = contents.group_by(&:first).values_at(:chip, :gen).map { |l|
-        (l || []).map(&:last)
-      }
-      gens.empty? || (chips - gens).empty?
-    }
-  end
-
   def move(moved_items, from:, to:)
     map.with_index { |items, floor|
       next items + moved_items if floor == to
@@ -39,7 +30,17 @@ module State; refine Array do
   end
 end end
 
+module Floor; refine Array do
+  def legal?
+    chips, gens = group_by(&:first).values_at(:chip, :gen).map { |l|
+      (l || []).map(&:last)
+    }
+    gens.empty? || (chips - gens).empty?
+  end
+end end
+
 using State
+using Floor
 
 def moves_to_assemble(input, verbose: false)
   input.each { |contents| contents.each(&:freeze) }
@@ -87,7 +88,7 @@ def moves_to_assemble(input, verbose: false)
         return prev_moves.reverse << [moved_items, floor_moved_to]
       end
 
-      next unless new_state.legal?
+      next if [floor_moved_to, elevator].any? { |f| !new_state[f].legal? }
 
       # Set ratings BEFORE pruning seen states.
       # If you can reach a seen state with a +2 move,
