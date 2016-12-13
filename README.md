@@ -30,6 +30,10 @@ Some may additionally support other ways:
   The `-l` flag lists the moves in the solution.
   Using the flag twice (`ll`) lists each floor state in the solution.
   The `-v` flag causes queue size counts to be printed at every move count.
+* 13 (Maze): The `-t` flag uses the test input and goal.
+  Otherwise, pass the office designer's favourite number on ARGV.
+  Changing the goal is not supported.
+  The `-f` flag causes the flood-fill to be printed out.
 
 # Posting schedule and policy
 
