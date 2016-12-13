@@ -38,7 +38,7 @@ rows = cells.map { |row|
 
 if FIRST_N_ROWS > 0
   rotate_row = ->(row, current:) {
-    want = rows[row][:gaps].shift || rows[row][:leftmost_gap]
+    want = rows[row][:gaps].shift || (raise "Overflowed row #{row}")
     puts "rotate row y=#{row} by #{(want - current) % WIDTH}" if want != current
   }
 
@@ -56,7 +56,7 @@ if FIRST_N_ROWS > 0
     choices.max_by { |choice|
       if (prev = prev_index[choice])
         current_offset = prev - pos
-        want = rows[choice][:gaps].first || rows[choice][:leftmost_gap]
+        want = rows[choice][:gaps].first || 1.0 / 0.0
         if current_offset == want
           [3, if_present[choice]]
         elsif current_offset > want
