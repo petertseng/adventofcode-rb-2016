@@ -34,6 +34,9 @@ Some may additionally support other ways:
   Otherwise, pass the office designer's favourite number on ARGV.
   Changing the goal is not supported.
   The `-f` flag causes the flood-fill to be printed out.
+* 14 (One-Time Pad): Pass the salt in ARGV.
+  Due to long running time, the hashes have been precomputed.
+  To redo the computation, pass the `-r` flag.
 
 # Posting schedule and policy
 
