@@ -1,13 +1,15 @@
-base_discs = ARGF.each_line.map { |l|
+discs = ARGF.each_line.map { |l|
   id, positions, _, initial = l.scan(/\d+/).map(&method(:Integer))
   [id, positions, initial].freeze
 }
+discs << [discs.size + 1, 11, 0].freeze
 
-[[], [[base_discs.size + 1, 11, 0].freeze]].each { |more_discs|
-  discs = base_discs + more_discs
-  puts 0.step.find { |t|
-    discs.all? { |id, positions, initial|
-      (id + t + initial) % positions == 0
-    }
-  }
+step = 1
+t = 0
+times = discs.map { |id, positions, initial|
+  t += step until (id + t + initial) % positions == 0
+  step = step.lcm(positions)
+  t
 }
+
+puts times.last(2)
