@@ -3,6 +3,15 @@ require 'digest'
 WINDOW = 1000
 NUM_KEYS = 64
 
+# One-pass run through all indices.
+#
+# Unfortunately, I tried to code this while going for the leaderboard,
+# and ended up with a buggy implementation
+# (with quintuplets qualifying themselves as keys)
+#
+# Premature optimisation did not serve me well.
+# Next time, I'll probably try the naive caching approach first.
+
 def pads(inputs)
   pads = []
   stop = 1.0 / 0.0
