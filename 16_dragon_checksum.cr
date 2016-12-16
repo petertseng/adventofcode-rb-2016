@@ -1,29 +1,27 @@
-lengths = if (larg = ARGV.find { |a| a.start_with?('-l') })
+lengths = if (larg = ARGV.find { |a| a.starts_with?("-l") })
   ARGV.delete(larg)
-  larg[2..-1].split(?,).map(&method(:Integer))
+  larg[2..-1].split(',').map(&.to_i)
 else
   [272, 35651584]
-end.freeze
+end
 
-input = !ARGV.empty? && (v = ARGV.find { |arg| arg.match?(/^[01]+$/)}) ? v : ARGF.read
-bit = {?1 => true, ?0 => false}.freeze
-orig_a = input.each_char.map { |c| bit.fetch(c) }.freeze
+input = ARGV.first
+bit = {'1' => true, '0' => false}
+orig_a = input.each_char.map { |c| bit[c] }.to_a
 
 module Dragon
-  module_function
-
   # parity of first n digits
-  def parity(n)
+  def self.parity(n)
     gray = n ^ (n >> 1)
-    ((n & gray).to_s(2).count(?1) ^ gray) & 1
+    ((n & gray).to_s(2).count('1') ^ gray) & 1
   end
 
   # ones in the inclusive one-indexed range [left, right]
   # currently unused in this solution, but historically significant
-  def ones(left, right)
+  def self.ones(left, right)
     # Powers of two are guaranteed zero.
     # Find the largest one no larger than the right end.
-    zero = 1 << Math.log2(right).floor
+    zero = 1 << Math.log2(right).to_i
 
     if left > zero
       # we are completely on one end of the power of two.
@@ -50,8 +48,8 @@ end
 lengths.each { |disk|
   # The disk pattern is:
   # input, dragon, input reversed and negated, dragon, repeat
-  a = orig_a
-  a_rev = a.reverse.map(&:!).freeze
+  a = orig_a.dup
+  a_rev = a.reverse.map(&.!).to_a
 
   # chunk_size: the largest power of 2 that divides disk.
   # e.g.   272 is 100010000
@@ -59,9 +57,9 @@ lengths.each { |disk|
   #       ~271 is  11110000
   # 272 & ~271 is     10000
   chunk_size = disk & ~(disk - 1)
-  sum_size = disk / chunk_size
+  sum_size = disk // chunk_size
 
-  buf = []
+  buf = [] of Bool | Symbol
   dragons_total = 0
   prev_dragon_parity = 0
 
@@ -71,7 +69,7 @@ lengths.each { |disk|
     ones = 0
     dragons = 0
 
-    count_from_buffer = ->(n) {
+    count_from_buffer = ->(n: Int32) {
       taken = buf.shift(n)
       ones += taken.count(true)
       dragons += taken.count(:dragon)
@@ -80,7 +78,7 @@ lengths.each { |disk|
     # Anything left in the buffer from last time?
     take_from_buffer = [buf.size, chunk_size].min
     remaining = chunk_size - take_from_buffer
-    count_from_buffer[take_from_buffer]
+    count_from_buffer.call(take_from_buffer)
 
     # How many full ADBD groups will we have?
     full_adbds, remaining = remaining.divmod((a.size + 1) * 2)
@@ -93,7 +91,7 @@ lengths.each { |disk|
       buf << :dragon
       buf.concat(a_rev)
       buf << :dragon
-      count_from_buffer[remaining]
+      count_from_buffer.call(remaining)
     end
 
     dragons_total += dragons
