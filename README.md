@@ -37,6 +37,7 @@ Some may additionally support other ways:
 * 14 (One-Time Pad): Pass the salt in ARGV.
   Due to long running time, the hashes have been precomputed.
   To redo the computation, pass the `-r` flag.
+* 16 (Dragon Checksum): Pass the initial state in ARGV.
 
 # Posting schedule and policy
 
