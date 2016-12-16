@@ -33,14 +33,26 @@ lengths.each { |disk|
   # each character in the final checksum
   # corresponds to `chunk_size` consecutive characters on disk.
   puts sum_size.times.map {
-    while buf.size < chunk_size
+    # Anything left in the buffer from last time?
+    take_from_buffer = [buf.size, chunk_size].min
+    remaining = chunk_size - take_from_buffer
+    ones = buf.shift(take_from_buffer).count(true)
+
+    # How many full ADBD groups will we have?
+    full_adbds, remaining = remaining.divmod((a.size + 1) * 2)
+    # Count all the ones in the dragons.
+    ones += dragons.shift(full_adbds * 2).count(true)
+    # The number of ones in a + a_rev... is obviously a.size.
+    ones += a.size * full_adbds
+
+    if remaining > 0
       buf.concat(a)
       buf << dragons.shift
       buf.concat(a_rev)
       buf << dragons.shift
+      ones += buf.shift(remaining).count(true)
     end
 
-    chunk = buf.shift(chunk_size)
-    1 - chunk.count(true) % 2
+    1 - ones % 2
   }.join
 }
