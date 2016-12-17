@@ -51,6 +51,7 @@ Some may additionally support other ways:
   Due to long running time, the hashes have been precomputed.
   To redo the computation, pass the `-r` flag.
 * 16 (Dragon Checksum): Pass the initial state in ARGV.
+* 17 (MD5 Maze): Pass the passcode in ARGV.
 
 # Posting schedule and policy
 
