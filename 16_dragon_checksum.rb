@@ -4,7 +4,15 @@ input = !ARGV.empty? && ARGV.first.match?(/^[01]+$/) ? ARGV.first : ARGF.read
 
 module Dragon
   module_function
+
+  # parity of first n digits
+  def parity(n)
+    gray = n ^ (n >> 1)
+    ((n & gray).to_s(2).count(?1) ^ gray) & 1
+  end
+
   # ones in the inclusive one-indexed range [left, right]
+  # currently unused in this solution, but historically significant
   def ones(left, right)
     # Powers of two are guaranteed zero.
     # Find the largest one no larger than the right end.
@@ -48,11 +56,11 @@ end
 
   buf = []
   dragons_total = 0
+  prev_dragon_parity = 0
 
   # each character in the final checksum
   # corresponds to `chunk_size` consecutive characters on disk.
   puts sum_size.times.map {
-    dragons_before = dragons_total
     ones = 0
     dragons = 0
 
@@ -82,7 +90,12 @@ end
     end
 
     dragons_total += dragons
-    ones += Dragon.ones(dragons_before + 1, dragons_total) if dragons > 0
+    if dragons > 0
+      dragon_parity = Dragon.parity(dragons_total)
+      parity_diff = dragon_parity ^ prev_dragon_parity
+      prev_dragon_parity = dragon_parity
+      ones += parity_diff
+    end
     1 - ones % 2
   }.join
 }
