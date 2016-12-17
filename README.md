@@ -10,6 +10,19 @@ Despite this, I still intend to compete for fast times on the leaderboards.
 
 All solutions are written in Ruby.
 
+The solutions are written with the following goals, with the most important goal first:
+
+1. **Speed**.
+   Where possible, use efficient algorithms for the problem.
+   Solutions that take more than a second to run are treated with high suspicion.
+   This need not be overdone; micro-optimisation is not necessary.
+   (In problems where significant hashing is required, hash results may be pre-computed to save time in Travis CI)
+2. **Readability**.
+3. **Less is More**.
+   Whenever possible, write less code.
+   Especially prefer not to duplicate code.
+   This helps keeps solutions readable too.
+
 # Input
 
 In general, all solutions can be invoked in both of the following ways:
@@ -47,10 +60,8 @@ No exceptions.
 Waiting any longer than that seems generally not useful since at that time discussion starts on [the subreddit](https://www.reddit.com/r/adventofcode) anyway.
 
 Solutions posted will be **cleaned-up** versions of code I use to get leaderboard times (if I even succeed in getting them), rather than the exact code used.
-This is because the two seek to optimise two different metrics:
-
-* Leaderboard-seeking code is written for (programmer) speed.
-* Solutions posted in this repo are written for readability.
+This is because leaderboard-seeking code is written for programmer speed (whatever I can come up with in the heat of the moment).
+This often produces code that does not meet any of the goals of this repository (seen in the introductory paragraph).
 
 # Other years' solutions
 
