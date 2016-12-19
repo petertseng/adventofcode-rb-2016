@@ -8,7 +8,7 @@ fi
 day=$1
 
 if [ $# -eq 0 ]; then
-  day=$(date --utc +%-d)
+  day=$(TZ=UTC date +%-d)
   echo "OK, we have to guess the day, let's guess $day???"
 else
   shift
@@ -18,7 +18,7 @@ else
   fi
 fi
 
-daypad=$(seq -f%02g $day $day)
+daypad=$(seq -f %02g $day $day)
 
 if [ "$yes" = "1" ]; then
   if [ -f input$day ]; then
