@@ -53,6 +53,7 @@ Some may additionally support other ways:
 * 16 (Dragon Checksum): Pass the initial state in ARGV.
 * 17 (MD5 Maze): Pass the passcode in ARGV.
 * 18 (It's a Trap!): Pass the first row in ARGV.
+* 19 (Josephus): Pass the number of elves in ARGV.
 
 # Posting schedule and policy
 
