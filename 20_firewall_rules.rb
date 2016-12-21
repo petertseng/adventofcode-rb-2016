@@ -1,9 +1,9 @@
+# Assumes without checking that input intervals are sorted by start time.
 def min_unblock(intervals)
   unblocked = 0
-  loop {
-    blockers = intervals.select { |min, max| (min..max).include?(unblocked) }
-    return unblocked if blockers.empty?
-    unblocked = blockers.map(&:last).max + 1
+  intervals.each { |min, max|
+    return unblocked if min > unblocked
+    unblocked = [unblocked, max + 1].max
   }
 end
 
