@@ -54,6 +54,7 @@ Some may additionally support other ways:
 * 17 (MD5 Maze): Pass the passcode in ARGV.
 * 18 (It's a Trap!): Pass the first row in ARGV.
 * 19 (Josephus): Pass the number of elves in ARGV.
+* 22 (Grid Computing): To show the map, use the `-m` flag.
 
 # Posting schedule and policy
 
