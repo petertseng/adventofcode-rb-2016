@@ -53,14 +53,32 @@ module Assembunny class Interpreter
     opt.freeze
   end
 
-  def run(regs)
+  def run(regs, debug: false)
     toggles = @original.map { false }
     optimised = optimise(@original)
 
     val = ->(n) { n.is_a?(Integer) ? n : regs.fetch(n) }
 
     pc = -1
+
+    debuginfo = {}
+    t = 0
+    add_debug = ->{
+      reg_str = regs.to_h { |k, v| [k, "#{k}: #{v}".freeze] }.freeze
+      inst_str = optimised.map { |o| o.join(' ').freeze }.freeze
+      debuginfo[t] = {
+        regs: regs.dup,
+        pc: pc,
+        reg_str: reg_str,
+        inst: optimised.dup,
+        inst_str: inst_str,
+        width: (reg_str.values + inst_str).map(&:size).max,
+      }
+    }
+    add_debug[]
+
     while pc >= -1 && (inst = optimised[pc += 1])
+      t += 1
       case inst[0]
       when :cpy; regs[inst[2]] = val[inst[1]] if inst[2].is_a?(Symbol)
       when :inc; regs[inst[1]] += 1 if inst[1].is_a?(Symbol)
@@ -81,10 +99,38 @@ module Assembunny class Interpreter
         if 0 <= target && target < optimised.size
           toggles[target] ^= true
           optimised = optimise(effective(@original.zip(toggles)))
+          add_debug[]
         end
       else raise "Unknown instruction #{inst}"
       end
     end
+
+    add_debug[]
+
+    if debug
+      inst_width = (optimised.size - 1).to_s.size
+      puts (' ' * (inst_width + 1)) + debuginfo.map { |dt, dd|
+        "t = #{dt}, pc = #{dd[:pc]}".ljust(dd[:width])
+      }.join('|')
+      regs.each_key { |reg|
+        puts (' ' * (inst_width + 1)) + debuginfo.map { |_, dd|
+          dd[:reg_str][reg].ljust(dd[:width])
+        }.join('|')
+      }
+      max_inst = debuginfo.values.map { |d| d[:inst].size }.max
+      max_inst.times { |n|
+        prev = nil
+        puts ("%#{inst_width}d " % n) + debuginfo.map { |_, dd|
+          inst = dd[:inst_str][n]
+          first = prev.nil?
+          changed = prev && prev != inst
+          prev = inst
+          show_anyway = false
+          "\e[#{changed ? 1 : 0}m#{(first || changed || show_anyway ? inst : '').ljust(dd[:width])}\e[0m"
+        }.join('|')
+      }
+    end
+
     regs
   end
 end end
