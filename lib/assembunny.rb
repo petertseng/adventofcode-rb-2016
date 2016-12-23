@@ -7,6 +7,20 @@ module Assembunny class Interpreter
     }.map(&:freeze)
   end
 
+  def effective(inst_and_toggle)
+    inst_and_toggle.map { |(cmd, *args), toggle|
+      new_cmd = cmd
+      if toggle
+        case args.size
+        when 2; new_cmd = (cmd == :jnz ? :cpy : :jnz)
+        when 1; new_cmd = (cmd == :inc ? :dec : :inc)
+        else raise "Unsupported argument size: #{cmd} #{args}"
+        end
+      end
+      [new_cmd, *args].freeze
+    }.freeze
+  end
+
   def optimise(original)
     opt = original.dup
 
@@ -38,6 +52,7 @@ module Assembunny class Interpreter
   end
 
   def run(regs)
+    toggles = @original.map { false }
     optimised = optimise(@original)
 
     val = ->(n) { n.is_a?(Integer) ? n : regs.fetch(n) }
@@ -59,6 +74,12 @@ module Assembunny class Interpreter
         regs[inst[2]] = 0
         regs[inst[4]] = 0
         pc += 5
+      when :tgl
+        target = pc + val[inst[1]]
+        if 0 <= target && target < optimised.size
+          toggles[target] ^= true
+          optimised = optimise(effective(@original.zip(toggles)))
+        end
       else raise "Unknown instruction #{inst}"
       end
     end
