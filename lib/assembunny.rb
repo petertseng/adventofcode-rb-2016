@@ -30,6 +30,7 @@ module Assembunny class Interpreter
       # dec d
       # jnz d -2
       next unless inc[0] == :inc && dec[0] == :dec && jnz == [:jnz, dec[1], -2]
+      next unless [inc[1], dec[1]].all? { |x| x.is_a?(Symbol) }
       # inc_by a d
       opt[i] = [:inc_by, inc[1], dec[1]].freeze
     }
@@ -44,6 +45,7 @@ module Assembunny class Interpreter
       # jnz d -5
       next unless cpy[0] == :cpy && incby[0] == :inc_by && cpy[2] == incby[2]
       next unless dec[0] == :dec && jnz == [:jnz, dec[1], -5]
+      next unless [dec[1], *incby[1..2]].all? { |x| x.is_a?(Symbol) }
       # inc_by_mul a d b c (b might be reg or imm)
       opt[i] = [:inc_by_mul, incby[1], dec[1], cpy[1], incby[2]].freeze
     }
@@ -60,9 +62,9 @@ module Assembunny class Interpreter
     pc = -1
     while pc >= -1 && (inst = optimised[pc += 1])
       case inst[0]
-      when :cpy; regs[inst[2]] = val[inst[1]]
-      when :inc; regs[inst[1]] += 1
-      when :dec; regs[inst[1]] -= 1
+      when :cpy; regs[inst[2]] = val[inst[1]] if inst[2].is_a?(Symbol)
+      when :inc; regs[inst[1]] += 1 if inst[1].is_a?(Symbol)
+      when :dec; regs[inst[1]] -= 1 if inst[1].is_a?(Symbol)
       # -1 to offset the standard increment
       when :jnz; pc += val[inst[2]] - 1 if val[inst[1]] != 0
       when :inc_by
