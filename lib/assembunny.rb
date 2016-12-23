@@ -20,6 +20,20 @@ module Assembunny class Interpreter
       opt[i] = [:inc_by, inc[1], dec[1]].freeze
     }
 
+    # x += y * z
+    opt.each_cons(6).with_index { |(cpy, incby, _, _, dec, jnz), i|
+      # cpy b c
+      # inc a    \
+      # dec c     > inc_by a c
+      # jnz c -2 /
+      # dec d
+      # jnz d -5
+      next unless cpy[0] == :cpy && incby[0] == :inc_by && cpy[2] == incby[2]
+      next unless dec[0] == :dec && jnz == [:jnz, dec[1], -5]
+      # inc_by_mul a d b c (b might be reg or imm)
+      opt[i] = [:inc_by_mul, incby[1], dec[1], cpy[1], incby[2]].freeze
+    }
+
     opt.freeze
   end
 
@@ -40,6 +54,11 @@ module Assembunny class Interpreter
         regs[inst[1]] += regs[inst[2]]
         regs[inst[2]] = 0
         pc += 2
+      when :inc_by_mul
+        regs[inst[1]] += regs[inst[2]] * val[inst[3]]
+        regs[inst[2]] = 0
+        regs[inst[4]] = 0
+        pc += 5
       else raise "Unknown instruction #{inst}"
       end
     end
