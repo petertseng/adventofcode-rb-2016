@@ -35,7 +35,7 @@ module Assembunny class Interpreter
       when :inc; regs[inst[1]] += 1
       when :dec; regs[inst[1]] -= 1
       # -1 to offset the standard increment
-      when :jnz; pc += inst[2] - 1 if regs[inst[1]] != 0
+      when :jnz; pc += val[inst[2]] - 1 if val[inst[1]] != 0
       when :inc_by
         regs[inst[1]] += regs[inst[2]]
         regs[inst[2]] = 0
