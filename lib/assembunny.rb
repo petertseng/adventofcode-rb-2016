@@ -63,10 +63,12 @@ module Assembunny class Interpreter
 
     debuginfo = {}
     t = 0
+    vt = 0
     add_debug = ->{
       reg_str = regs.to_h { |k, v| [k, "#{k}: #{v}".freeze] }.freeze
       inst_str = optimised.map { |o| o.join(' ').freeze }.freeze
       debuginfo[t] = {
+        vt: vt,
         regs: regs.dup,
         pc: pc,
         reg_str: reg_str,
@@ -79,6 +81,7 @@ module Assembunny class Interpreter
 
     while pc >= -1 && (inst = optimised[pc += 1])
       t += 1
+      vt += 1
       case inst[0]
       when :cpy; regs[inst[2]] = val[inst[1]] if inst[2].is_a?(Symbol)
       when :inc; regs[inst[1]] += 1 if inst[1].is_a?(Symbol)
@@ -86,10 +89,12 @@ module Assembunny class Interpreter
       # -1 to offset the standard increment
       when :jnz; pc += val[inst[2]] - 1 if val[inst[1]] != 0
       when :inc_by
+        vt += regs[inst[2]] * 3 - 1
         regs[inst[1]] += regs[inst[2]]
         regs[inst[2]] = 0
         pc += 2
       when :inc_by_mul
+        vt += (1 + val[inst[3]] * 3 + 2) * regs[inst[2]] - 1
         regs[inst[1]] += regs[inst[2]] * val[inst[3]]
         regs[inst[2]] = 0
         regs[inst[4]] = 0
@@ -111,6 +116,9 @@ module Assembunny class Interpreter
       inst_width = (optimised.size - 1).to_s.size
       puts (' ' * (inst_width + 1)) + debuginfo.map { |dt, dd|
         "t = #{dt}, pc = #{dd[:pc]}".ljust(dd[:width])
+      }.join('|')
+      puts (' ' * (inst_width + 1)) + debuginfo.map { |dt, dd|
+        "vt = #{dd[:vt]}".ljust(dd[:width])
       }.join('|')
       regs.each_key { |reg|
         puts (' ' * (inst_width + 1)) + debuginfo.map { |_, dd|
