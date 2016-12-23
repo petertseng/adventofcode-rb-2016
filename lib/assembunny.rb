@@ -29,7 +29,7 @@ module Assembunny class Interpreter
     val = ->(n) { n.is_a?(Integer) ? n : regs.fetch(n) }
 
     pc = -1
-    while (inst = optimised[pc += 1])
+    while pc >= -1 && (inst = optimised[pc += 1])
       case inst[0]
       when :cpy; regs[inst[2]] = val[inst[1]]
       when :inc; regs[inst[1]] += 1
