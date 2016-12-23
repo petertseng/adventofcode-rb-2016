@@ -1,12 +1,9 @@
 module Assembunny class Interpreter
   def initialize(lines)
     @original = lines.map(&:split).map { |words|
-      args = words[1..-1].map { |x| x.match?(/\d+/) ? Integer(x) : x.to_sym }
-      if words[0] == 'cpy'
-        [args[0].is_a?(Integer) ? :load : :copy, args[1], args[0]]
-      else
-        [words[0].to_sym] + args
-      end
+      [words[0].to_sym] + words[1..-1].map { |x|
+        x.match?(/\d+/) ? Integer(x) : x.to_sym
+      }
     }.map(&:freeze)
   end
 
@@ -29,11 +26,12 @@ module Assembunny class Interpreter
   def run(regs)
     optimised = optimise(@original)
 
+    val = ->(n) { n.is_a?(Integer) ? n : regs.fetch(n) }
+
     pc = -1
     while (inst = optimised[pc += 1])
       case inst[0]
-      when :load; regs[inst[1]] = inst[2]
-      when :copy; regs[inst[1]] = regs[inst[2]]
+      when :cpy; regs[inst[2]] = val[inst[1]]
       when :inc; regs[inst[1]] += 1
       when :dec; regs[inst[1]] -= 1
       # -1 to offset the standard increment
