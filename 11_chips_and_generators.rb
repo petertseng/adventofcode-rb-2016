@@ -39,7 +39,7 @@ end end
 module Floor; refine Array do
   def legal?
     chips, gens = partition { |x| x & TYPE_MASK == CHIP }
-    gens.empty? || (chips.map { |x| x | GENERATOR } - gens).empty?
+    gens.empty? || chips.all? { |c| gens.include?(c | GENERATOR) }
   end
 end end
 
