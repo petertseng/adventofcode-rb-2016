@@ -1,3 +1,9 @@
+CHIP = 0
+GENERATOR = 1
+TYPE_NAMES = %w(chip gen).map(&:freeze).freeze
+TYPE_BITS = 1
+TYPE_MASK = (1 << TYPE_BITS) - 1
+
 START_FLOOR = begin
   arg = ARGV.find { |x| x.start_with?(?-) && x.include?(?s) }
   # No need to delete here, will get deleted later.
@@ -15,10 +21,10 @@ module State; refine Array do
 
   def pairs
     each_with_index.with_object(Hash.new { |h, k|
-      h[k] = {gen: nil, chip: nil}
+      h[k] = [nil, nil]
     }) { |(items, floor), h|
-      items.each { |type, element| h[element][type] = floor }
-    }.values.map { |p| p.values_at(:gen, :chip).freeze }.sort.freeze
+      items.each { |item| h[item >> TYPE_BITS][item & TYPE_MASK] = floor }
+    }.values.map(&:freeze).sort.freeze
   end
 
   def move(moved_items, from:, to:)
@@ -32,8 +38,8 @@ end end
 
 module Floor; refine Array do
   def legal?
-    chips, gens = group_by(&:first).values_at(:chip, :gen).map { |l|
-      (l || []).map(&:last)
+    chips, gens = group_by { |x| x & TYPE_MASK }.values_at(CHIP, GENERATOR).map { |l|
+      (l || []).map { |x| x >> TYPE_BITS }
     }
     gens.empty? || (chips - gens).empty?
   end
@@ -43,8 +49,6 @@ using State
 using Floor
 
 def moves_to_assemble(input, verbose: false)
-  input.each { |contents| contents.each(&:freeze) }
-
   # moves, state, floor
   move_queue = [[0, input, START_FLOOR]]
 
@@ -117,19 +121,23 @@ part_1_only = has_flag?(?1)
 list = has_flag?(?l)
 show_state = has_flag?('ll')
 
-solve = ->(input) {
+solve = ->(input, elements) {
+  element_names = elements.sort_by(&:last).map(&:first)
+  name = ->(i) {
+    "#{element_names[i >> TYPE_BITS]} #{TYPE_NAMES[i & TYPE_MASK]}"
+  }
   moves = moves_to_assemble(input, verbose: verbose)
   puts moves.size
   if list || show_state
     state = input
     floor = START_FLOOR
     moves.each_with_index { |(moved_items, floor_moved_to), i|
-      puts "#{i + 1}: #{moved_items} -> #{floor_moved_to}" if list
+      puts "#{i + 1}: #{moved_items.map(&name)} -> #{floor_moved_to}" if list
       state = state.move(moved_items, from: floor, to: floor_moved_to)
       floor = floor_moved_to
       if show_state
         state.reverse_each.with_index { |items, distance_from_top|
-          puts "#{state.size - distance_from_top}: #{items}"
+          puts "#{state.size - distance_from_top}: #{items.map(&name)}"
         }
         puts
       end
@@ -139,22 +147,26 @@ solve = ->(input) {
 
 ARGV.reject! { |a| a.start_with?(?-) }
 
+elements = {}
+
 input = ARGF.map { |l|
   [
-    [:gen, /(\w+) generator/],
-    [:chip, /(\w+)-compatible microchip/],
+    [GENERATOR, /(\w+) generator/],
+    [CHIP, /(\w+)-compatible microchip/],
   ].flat_map { |type, regex|
-    l.scan(regex).map { |x| [type, x[0].to_sym].freeze }
+    l.scan(regex).map { |x|
+      element = elements[x[0]] ||= elements.size
+      element << TYPE_BITS | type
+    }
   }.freeze
 }.freeze
 
-solve[input]
+solve[input, elements]
 
-input = ([input[0] + [:gen, :chip].flat_map { |type|
-  [:elerium, :dilithium].map { |element| [type, element].freeze }
-}] + input[1..]).freeze
+input = ([input[0] + ((0...4).map { |x| x + (elements.size << TYPE_BITS) })] + input[1..]).freeze
+%w(elerium dilithium).each { |e| elements[e] = elements.size }
 
 # for the example input,
 # adding the two generators to floor 1 would immediately fry the two chips there,
 # so there's no point in doing part 2 for the example input
-solve[input] unless part_1_only
+solve[input, elements] unless part_1_only
