@@ -73,6 +73,10 @@ module Assembunny class Interpreter
     opt.freeze
   end
 
+  def unopt(opt, orig, pc)
+    opt.zip(orig).map.with_index { |(a, b), i| i == pc ? b : a }.freeze
+  end
+
   def run(regs, outs: [], debug: false, max_vt: 1.0 / 0.0, opt: true)
     store_outs = outs == :store
     outs = [] if store_outs
@@ -104,6 +108,7 @@ module Assembunny class Interpreter
     add_debug[]
 
     while vt <= max_vt && pc >= -1 && (inst = optimised[pc += 1])
+      vt_left = max_vt - vt
       t += 1
       vt += 1
       case inst[0]
@@ -113,24 +118,66 @@ module Assembunny class Interpreter
       # -1 to offset the standard increment
       when :jnz; pc += val[inst[2]] - 1 if val[inst[1]] != 0
       when :inc_by
-        vt += regs[inst[2]] * 3 - 1
-        regs[inst[1]] += regs[inst[2]]
-        regs[inst[2]] = 0
-        pc += 2
+        loops_possible = vt_left / 3
+        loops_to_do = [loops_possible, regs[inst[2]]].min
+        full_loops = loops_to_do == regs[inst[2]]
+        # - 1 because 1 has already been added above.
+        vt += loops_to_do * 3 - 1
+        regs[inst[1]] += loops_to_do
+        regs[inst[2]] -= loops_to_do
+        if full_loops
+          pc += 2
+        else
+          # I think this is right - unoptimise this instruction and retry it.
+          optimised = unopt(optimised, effective(@original.zip(toggles)), pc)
+          pc -= 1
+        end
       when :inc_by_mul
-        vt += (1 + val[inst[3]] * 3 + 2) * regs[inst[2]] - 1
-        regs[inst[1]] += regs[inst[2]] * val[inst[3]]
-        regs[inst[2]] = 0
+        loops_possible = vt_left / (1 + val[inst[3]] * 3 + 2)
+        loops_to_do = [loops_possible, regs[inst[2]]].min
+        full_loops = loops_to_do == regs[inst[2]]
+        # - 1 because 1 has already been added above.
+        vt += (1 + val[inst[3]] * 3 + 2) * loops_to_do - 1
+        regs[inst[1]] += loops_to_do * val[inst[3]]
+        regs[inst[2]] -= loops_to_do
         regs[inst[4]] = 0
-        pc += 5
+        if full_loops
+          pc += 5
+        else
+          # I think this is right - unoptimise this instruction and retry it.
+          optimised = unopt(optimised, effective(@original.zip(toggles)), pc)
+          pc -= 1
+        end
       when :divmod
         div = val[inst[2]]
         quot, mod = regs[inst[1]].divmod(div)
-        vt += 3 + quot * (7 + 4 * (div - 1)) + mod * 4 - 1
-        regs[inst[1]] = 0
-        regs[inst[3]] = quot
-        regs[inst[4]] = div - mod
-        pc += 7
+        loops_possible = (vt_left + 1) / (4 * div + 3)
+        full_dvt = 3 + quot * (7 + 4 * (div - 1)) + mod * 4
+        loops_to_do = [0, [loops_possible, quot].min].max
+        if full_dvt <= vt_left
+          quot, mod = regs[inst[1]].divmod(div)
+          dvt = full_dvt
+          regs[inst[1]] = 0
+          regs[inst[3]] = quot
+          regs[inst[4]] = div - mod
+          pc += 7
+        else
+          if loops_to_do > 0
+            # We'll only do the quot part.
+            # The mod part made it too complicated.
+            dvt = loops_to_do * (4 * div + 3)
+            regs[inst[1]] -= loops_to_do * div
+            regs[inst[3]] = loops_to_do
+          else
+            # Unwind the instruction completely.
+            t -= 1
+            dvt = 0
+          end
+          # I think this is right - unoptimise this instruction and retry it.
+          optimised = unopt(optimised, effective(@original.zip(toggles)), pc)
+          pc -= 1
+        end
+        vt += dvt - 1
       when :tgl
         target = pc + val[inst[1]]
         if 0 <= target && target < optimised.size
