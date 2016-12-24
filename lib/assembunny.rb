@@ -73,9 +73,9 @@ module Assembunny class Interpreter
     opt.freeze
   end
 
-  def run(regs, outs: [], debug: false, max_vt: 1.0 / 0.0)
+  def run(regs, outs: [], debug: false, max_vt: 1.0 / 0.0, opt: true)
     toggles = @original.map { false }
-    optimised = optimise(@original)
+    optimised = opt ? optimise(@original) : @original
 
     val = ->(n) { n.is_a?(Integer) ? n : regs.fetch(n) }
 
@@ -133,7 +133,8 @@ module Assembunny class Interpreter
         target = pc + val[inst[1]]
         if 0 <= target && target < optimised.size
           toggles[target] ^= true
-          optimised = optimise(effective(@original.zip(toggles)))
+          e = effective(@original.zip(toggles))
+          optimised = opt ? optimise(e) : e
           add_debug[]
         end
       when :out
