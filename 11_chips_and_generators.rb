@@ -38,10 +38,8 @@ end end
 
 module Floor; refine Array do
   def legal?
-    chips, gens = group_by { |x| x & TYPE_MASK }.values_at(CHIP, GENERATOR).map { |l|
-      (l || []).map { |x| x >> TYPE_BITS }
-    }
-    gens.empty? || (chips - gens).empty?
+    chips, gens = partition { |x| x & TYPE_MASK == CHIP }
+    gens.empty? || (chips.map { |x| x | GENERATOR } - gens).empty?
   end
 end end
 
