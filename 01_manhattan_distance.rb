@@ -1,27 +1,22 @@
 require 'set'
 
-face = 0
-pos = [0, 0]
-locs = Set.new([pos.dup])
+face = 1
+pos = Complex(0, 0)
+locs = Set.new([pos])
 first_repeat = nil
 
 ARGF.read.split(?,) { |inst|
   inst.strip!
-  face += {?L => -1, ?R => 1}.fetch(inst[0])
-  face %= 4
+  face *= Complex(0, {?L => 1, ?R => -1}.fetch(inst[0]))
   steps = Integer(inst[1..-1])
 
-  # 0 north 1 east 2 south 3 west
-  coord = face % 2
-  dir = face / 2 == 0 ? 1 : -1
-
   steps.times {
-    pos[coord] += dir
+    pos += face
     unless first_repeat
-      first_repeat = pos.dup if locs.include?(pos)
-      locs.add(pos.dup)
+      first_repeat = pos if locs.include?(pos)
+      locs.add(pos)
     end
   }
 }
 
-[pos, first_repeat].each { |p| puts (p ? p.sum(&:abs) : 'no') }
+[pos, first_repeat].each { |p| puts (p ? p.real.abs + p.imag.abs : 'no') }
