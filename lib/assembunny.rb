@@ -50,6 +50,26 @@ module Assembunny class Interpreter
       opt[i] = [:inc_by_mul, incby[1], dec[1], cpy[1], incby[2]].freeze
     }
 
+    # q, r = x / d, d - (x % d)
+    opt.each_cons(8).with_index { |(cpydr, jnzx, jmp1, decx, decr, jnzr, incq, jmp2), i|
+      # cpy 2 c
+      # jnz b 2
+      # jnz 1 6
+      # dec b
+      # dec c
+      # jnz c -4
+      # inc a
+      # jnz 1 -7
+      next unless jmp1 == [:jnz, 1, 6] && jmp2 == [:jnz, 1, -7]
+      next unless jnzx == [:jnz, decx[1], 2] && jnzr == [:jnz, decr[1], -4]
+      next unless [decx, decr].all? { |inst| inst[0] == :dec }
+      next unless cpydr[0] == :cpy && cpydr[2] == decr[1]
+      next unless incq[0] == :inc
+      next unless [decx, decr, incq].all? { |x| x[1].is_a?(Symbol) }
+      # divmod x d q r (d might be reg or imm)
+      opt[i] = [:divmod, decx[1], cpydr[1], incq[1], decr[1]].freeze
+    }
+
     opt.freeze
   end
 
@@ -101,6 +121,14 @@ module Assembunny class Interpreter
         regs[inst[2]] = 0
         regs[inst[4]] = 0
         pc += 5
+      when :divmod
+        div = val[inst[2]]
+        quot, mod = regs[inst[1]].divmod(div)
+        vt += 3 + quot * (7 + 4 * (div - 1)) + mod * 4 - 1
+        regs[inst[1]] = 0
+        regs[inst[3]] = quot
+        regs[inst[4]] = div - mod
+        pc += 7
       when :tgl
         target = pc + val[inst[1]]
         if 0 <= target && target < optimised.size
