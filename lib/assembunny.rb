@@ -53,13 +53,15 @@ module Assembunny class Interpreter
     opt.freeze
   end
 
-  def run(regs, debug: false)
+  def run(regs, outs: [], debug: false)
     toggles = @original.map { false }
     optimised = optimise(@original)
 
     val = ->(n) { n.is_a?(Integer) ? n : regs.fetch(n) }
 
     pc = -1
+
+    good_outs = 0
 
     debuginfo = {}
     t = 0
@@ -106,6 +108,10 @@ module Assembunny class Interpreter
           optimised = optimise(effective(@original.zip(toggles)))
           add_debug[]
         end
+      when :out
+        break if val[inst[1]] != outs[good_outs]
+        good_outs += 1
+        break if good_outs == outs.size
       else raise "Unknown instruction #{inst}"
       end
     end
@@ -139,6 +145,6 @@ module Assembunny class Interpreter
       }
     end
 
-    regs
+    [regs, good_outs]
   end
 end end
