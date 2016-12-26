@@ -127,11 +127,17 @@ end end
 using State
 
 def moves_to_assemble(input, verbose: false, list_moves: false)
+  goal = [[].freeze] * (input.size - 1) + [input.flatten]
+
   # moves, state, floor
-  move_queue = [[0, input, START_FLOOR]]
+  move_queue = [
+    [0, input, START_FLOOR],
+    [0, goal, input.size - 1],
+  ]
 
   # [state, floor] -> [state, floor, moved_items]
-  prev = {[input.pairs, START_FLOOR] => :start}
+  prev_start = { [input.pairs, START_FLOOR] => :start }
+  prev_end = { [goal.pairs, input.size - 1] => :end }
 
   max_moves = 0
 
@@ -148,19 +154,33 @@ def moves_to_assemble(input, verbose: false, list_moves: false)
 
     cleared_floor = state.find_index(&:any?) - 1
 
+    from_start = moves_so_far > 0 || moves_so_far == 0 && state != goal
+
     state.moves(elevator).sort_by(&:last).reverse_each { |moved_items, floor_moved_to, rating|
       # If you're higher than the highest *consecutive* empty floor,
       # you probably don't want to move things into it.
-      next if floor_moved_to == cleared_floor
+      next if from_start && floor_moved_to == cleared_floor
 
       # If I've already gotten better moves out, bail.
-      next if (rating > 0 ? best_positive : best_negative) > rating
+      next if from_start && (rating > 0 ? best_positive : best_negative) > rating
 
       new_state = state.move(moved_items, from: elevator, to: floor_moved_to)
 
-      if new_state[0..-2].all?(&:empty?)
-        return [nil] * (moves_so_far + 1) unless list_moves
+      # Set ratings BEFORE pruning seen states.
+      # If you can reach a seen state with a +2 move,
+      # you don't need to bother with any +1 move!
+      best_positive = rating if rating > 0
+      best_negative = rating if rating < 0
 
+      new_moves = moves_so_far + (from_start ? 1 : -1)
+
+      # MOST IMPORTANT OPTIMISATION: ALL PAIRS ARE INTERCHANGEABLE
+      prev_key = [new_state.pairs, floor_moved_to]
+      my_prev, other_prev = from_start ? [prev_start, prev_end] : [prev_end, prev_start]
+      if other_prev.include?(prev_key)
+        return [nil] * (new_moves.abs + other_prev[prev_key].abs) unless list_moves
+
+        # TODO: Reconstruct moves. Old code here.
         state_pair = state.pairs
         floor = elevator
 
@@ -173,19 +193,11 @@ def moves_to_assemble(input, verbose: false, list_moves: false)
 
         return prev_moves.reverse << [moved_items, floor_moved_to]
       end
+      next if my_prev.include?(prev_key)
 
-      # Set ratings BEFORE pruning seen states.
-      # If you can reach a seen state with a +2 move,
-      # you don't need to bother with any +1 move!
-      best_positive = rating if rating > 0
-      best_negative = rating if rating < 0
+      my_prev[prev_key] = list_moves ? [state.pairs, elevator, moved_items] : new_moves
 
-      # MOST IMPORTANT OPTIMISATION: ALL PAIRS ARE INTERCHANGEABLE
-      prev_key = [new_state.pairs, floor_moved_to]
-      next if prev.has_key?(prev_key)
-      prev[prev_key] = list_moves && [state.pairs, elevator, moved_items]
-
-      move_queue << [moves_so_far + 1, new_state, floor_moved_to]
+      move_queue << [new_moves, new_state, floor_moved_to]
     }
   end
 end
