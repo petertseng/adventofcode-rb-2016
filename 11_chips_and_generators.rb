@@ -13,8 +13,21 @@ end
 module State; refine Array do
   def moves(elevator)
     items = self[elevator]
+
+    chips, gens = items.partition { |x| x & TYPE_MASK == CHIP }
+
+    # We can't move an A chip and B generator together,
+    # because the A chip will certainly get fried.
+    # So, our choices for twos: two chips or two generators or a pair.
+    two_choices = chips.combination(2).to_a + gens.combination(2).to_a
+
+    # If there is a pair, it doesn't matter which one.
+    paired_chip = chips.find { |c| gens.include?(c | GENERATOR) }
+    two_choices << [paired_chip, paired_chip | GENERATOR] if paired_chip
+
     destinations = [elevator - 1, elevator + 1].select { |f| 0 <= f && f < size }
-    (items.combination(2).to_a + items.map { |item| [item] }).flat_map { |moved|
+
+    (two_choices + items.map { |item| [item] }).flat_map { |moved|
       destinations.map { |dest| [moved, dest, moved.size * (dest - elevator)] }
     }
   end
