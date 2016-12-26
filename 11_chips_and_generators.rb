@@ -33,11 +33,15 @@ module State; refine Array do
   end
 
   def pairs
-    each_with_index.with_object(Hash.new { |h, k|
-      h[k] = [nil, nil]
-    }) { |(items, floor), h|
-      items.each { |item| h[item >> TYPE_BITS][item & TYPE_MASK] = floor }
-    }.values.map(&:freeze).sort.freeze
+    each_with_index.with_object(Hash.new(0)) { |(items, floor), h|
+      items.each { |item|
+        # h's key is the element of the item.
+        # The value is (generator_floor << size) | chip_floor
+        # Left-shift by log_2(size) would work too,
+        # but that's more work to calculate.
+        h[item >> TYPE_BITS] |= floor << (item & TYPE_MASK) * size
+      }
+    }.values.sort.freeze
   end
 
   def move(moved_items, from:, to:)
