@@ -1,16 +1,19 @@
 CHIP = 0
 GENERATOR = 1
-TYPE_NAMES = %w(chip gen).map(&:freeze).freeze
+TYPE_NAMES = %w(chip gen)
 TYPE_BITS = 1
 TYPE_MASK = (1 << TYPE_BITS) - 1
 
+alias Element = UInt8
+alias Component = UInt8
+
 START_FLOOR = begin
-  arg = ARGV.find { |x| x.start_with?(?-) && x.include?(?s) }
+  arg = ARGV.find { |x| x.starts_with?('-') && x.includes?('s') }
   # No need to delete here, will get deleted later.
-  arg ? Integer(arg[(arg.index(?s) + 1)..-1]) : 0
+  arg ? arg[(arg.index('s').not_nil! + 1)..-1].to_i : 0
 end
 
-module State; refine Array do
+class Array
   def moves(elevator)
     items = self[elevator]
 
@@ -21,46 +24,45 @@ module State; refine Array do
     # So, our choices for twos: two chips or two generators or a pair.
 
     # If there is a pair, it doesn't matter which one.
-    paired_chip = chips.find { |c| gens.include?(c | GENERATOR) }
+    paired_chip = chips.find { |c| gens.includes?(c | GENERATOR) }
     pair = paired_chip && [paired_chip, paired_chip | GENERATOR]
 
-    unpaired_gens = gens.reject { |g| chips.include?(g & ~GENERATOR) }
+    unpaired_gens = gens.reject { |g| chips.includes?(g & ~GENERATOR) }
 
     # If there's a paired generator plus any other,
     # we can't move the paired generator out alone.
-    movable_gens1 = (gens.size == 1 ? gens : unpaired_gens).freeze
+    movable_gens1 = (gens.size == 1 ? gens : unpaired_gens)
 
     # Considerations for moving two generators:
     # If there are two generators, we can always move them both out.
     # If there is one generator, combination(2) will be empty.
     # If there are 3+ generators, no paired generator can move.
-    movable_gens2 = gens.size == 2 ? [gens] : unpaired_gens.combination(2).to_a
-    movable_gens2.freeze
+    movable_gens2 = gens.size == 2 ? [gens] : unpaired_gens.combinations(2).to_a
 
     destinations = [elevator - 1, elevator + 1].select { |f| 0 <= f && f < size }
 
     destinations.flat_map { |dest|
       dest_chips, dest_gens = self[dest].partition { |x| x & TYPE_MASK == CHIP }
       unpaired_chips = dest_chips.reject { |c|
-        dest_gens.include?(c | GENERATOR)
+        dest_gens.includes?(c | GENERATOR)
       }
 
       # If the destination floor has generators,
       # we can only move the corresponding chips in.
       movable_chips = dest_gens.empty? ? chips : chips.select { |c|
-        dest_gens.include?(c | GENERATOR)
+        dest_gens.includes?(c | GENERATOR)
       }
 
       dest_gens1, dest_gens2 =
         case unpaired_chips.size
-        when 0; [movable_gens1, movable_gens2]
+        when 0; {movable_gens1, movable_gens2}
         when 1
           gen = unpaired_chips[0] | GENERATOR
           # We must move the unpaired chip's generator in.
-          movable_by_itself = movable_gens1.include?(gen)
-          [
+          movable_by_itself = movable_gens1.includes?(gen)
+          {
             # That generator can move in by itself if it was movable by itself.
-            movable_by_itself ? [gen] : [],
+            movable_by_itself ? [gen] : [] of Component,
             # Moves for which that generator can move in with another:
             if movable_by_itself
               if gens.size == 2
@@ -74,37 +76,38 @@ module State; refine Array do
                 (movable_gens1 - [gen]).map { |g| [g, gen] }
               end
             else
-              []
+              [] of Array(Component)
             end
-          ]
+          }
         when 2
           needed_gens = unpaired_chips.map { |c| c | GENERATOR }
           # We must move both unpaired chips' generators in.
           # They are unpaired on the source floor,
           # so this does not conflict with the above logic for movable_gens2.
-          [
-            [],
-            needed_gens.all? { |g| gens.include?(g) } ? [needed_gens] : [],
-          ]
+          {
+            [] of Component,
+            needed_gens.all? { |g| gens.includes?(g) } ? [needed_gens] : [] of Array(Component),
+          }
         else
           # No matter what we do, no generators are moving to this floor.
-          [[], []]
+          {[] of Component, [] of Array(Component)}
         end
 
-      two_choices = movable_chips.combination(2).to_a + dest_gens2
+      two_choices = movable_chips.combinations(2).to_a + dest_gens2
       one_choices = movable_chips + dest_gens1
 
       # If there are unpaired chips, the pair's generator will fry them.
       two_choices << pair if pair && unpaired_chips.empty?
 
       (two_choices + one_choices.map { |item| [item] }).map { |moved|
-        [moved, dest, moved.size * (dest - elevator)]
+        {moved, dest, moved.size * (dest - elevator)}
       }
     }
   end
 
   def pairs
-    each_with_index.with_object(Hash.new(0)) { |(items, floor), h|
+    h = Hash(Component, UInt8).new(0_u8)
+    each_with_index { |items, floor|
       items.each { |item|
         # h's key is the element of the item.
         # The value is (generator_floor << size) | chip_floor
@@ -112,31 +115,31 @@ module State; refine Array do
         # but that's more work to calculate.
         h[item >> TYPE_BITS] |= floor << (item & TYPE_MASK) * size
       }
-    }.values.sort.freeze
+    }
+    h.values.sort
   end
 
-  def move(moved_items, from:, to:)
-    map.with_index { |items, floor|
+  def move(moved_items, from, to)
+    map_with_index { |items, floor|
       next items + moved_items if floor == to
       next items - moved_items if floor == from
       items
     }
   end
-end end
+end
 
-using State
-
-def moves_to_assemble(input, verbose: false, list_moves: false)
+def moves_to_assemble(input, verbose = false, list_moves = false)
   # moves, state, floor
-  move_queue = [[0, input, START_FLOOR]]
+  move_queue = [{0, input, START_FLOOR}]
 
   # [state, floor] -> [state, floor, moved_items]
-  prev = {[input.pairs, START_FLOOR] => :start}
+  backtrack = { {input.pairs, START_FLOOR} => {input.pairs, 0, [] of Component}}
+  prev = Set.new([{input.pairs, START_FLOOR}])
 
   max_moves = 0
 
-  while (a = move_queue.shift)
-    moves_so_far, state, elevator = a
+  until move_queue.empty?
+    moves_so_far, state, elevator = move_queue.shift
 
     if moves_so_far > max_moves
       puts "#{moves_so_far} moves: #{move_queue.size + 1} states" if verbose
@@ -146,9 +149,9 @@ def moves_to_assemble(input, verbose: false, list_moves: false)
     best_positive = 0
     best_negative = -1.0 / 0.0
 
-    cleared_floor = state.find_index(&:any?) - 1
+    cleared_floor = state.index(&.any?).not_nil! - 1
 
-    state.moves(elevator).sort_by(&:last).reverse_each { |moved_items, floor_moved_to, rating|
+    state.moves(elevator).sort_by(&.last).reverse_each { |moved_items, floor_moved_to, rating|
       # If you're higher than the highest *consecutive* empty floor,
       # you probably don't want to move things into it.
       next if floor_moved_to == cleared_floor
@@ -158,20 +161,20 @@ def moves_to_assemble(input, verbose: false, list_moves: false)
 
       new_state = state.move(moved_items, from: elevator, to: floor_moved_to)
 
-      if new_state[0..-2].all?(&:empty?)
+      if new_state[0..-2].all?(&.empty?)
         return [nil] * (moves_so_far + 1) unless list_moves
 
         state_pair = state.pairs
         floor = elevator
 
         prev_moves = moves_so_far.times.map {
-          old_state, old_floor, moved = prev[[state_pair, floor]]
+          old_state, old_floor, moved = backtrack[{state_pair, floor}]
 
           state_pair = old_state
-          [moved, floor].tap { floor = old_floor }
-        }
+          {moved, floor}.tap { floor = old_floor }
+        }.to_a
 
-        return prev_moves.reverse << [moved_items, floor_moved_to]
+        return prev_moves.reverse << {moved_items, floor_moved_to}
       end
 
       # Set ratings BEFORE pruning seen states.
@@ -181,35 +184,41 @@ def moves_to_assemble(input, verbose: false, list_moves: false)
       best_negative = rating if rating < 0
 
       # MOST IMPORTANT OPTIMISATION: ALL PAIRS ARE INTERCHANGEABLE
-      prev_key = [new_state.pairs, floor_moved_to]
-      next if prev.has_key?(prev_key)
-      prev[prev_key] = list_moves && [state.pairs, elevator, moved_items]
+      prev_key = {new_state.pairs, floor_moved_to}
+      next if prev.includes?(prev_key)
+      prev.add(prev_key)
+      backtrack[prev_key] = {state.pairs, elevator, moved_items} if list_moves
 
-      move_queue << [moves_so_far + 1, new_state, floor_moved_to]
+      move_queue << {moves_so_far + 1, new_state, floor_moved_to}
     }
   end
 end
 
 def has_flag?(flag)
-  ARGV.any? { |a| a.start_with?(?-) && a.include?(flag) }
+  ARGV.any? { |a| a.starts_with?('-') && a.includes?(flag) }
 end
 
-verbose = has_flag?(?v)
-part_1_only = has_flag?(?1)
-list = has_flag?(?l)
-show_state = has_flag?('ll')
+verbose = has_flag?('v')
+part_1_only = has_flag?('1')
+list = has_flag?('l')
+show_state = has_flag?("ll")
 
-solve = ->(input, elements) {
-  element_names = elements.sort_by(&:last).map(&:first)
-  name = ->(i) {
+solve = ->(input : Array(Array(Component)), elements : Hash(String, Element)) {
+  element_names = elements.to_a.sort_by(&.last).map(&.first)
+  name = ->(i : Component) {
     "#{element_names[i >> TYPE_BITS]} #{TYPE_NAMES[i & TYPE_MASK]}"
   }
   moves = moves_to_assemble(input, verbose: verbose, list_moves: list)
+  if !moves
+    puts "impossible"
+    return
+  end
   puts moves.size
   if list || show_state
     state = input
     floor = START_FLOOR
-    moves.each_with_index { |(moved_items, floor_moved_to), i|
+    moves.each_with_index { |m, i|
+      moved_items, floor_moved_to = m.not_nil!
       puts "#{i + 1}: #{moved_items.map(&name)} -> #{floor_moved_to}" if list
       state = state.move(moved_items, from: floor, to: floor_moved_to)
       floor = floor_moved_to
@@ -223,28 +232,28 @@ solve = ->(input, elements) {
   end
 }
 
-ARGV.reject! { |a| a.start_with?(?-) }
+ARGV.reject! { |a| a.starts_with?('-') }
 
-elements = {}
+elements = {} of String => Element
 
-input = ARGF.map { |l|
-  [
-    [GENERATOR, /(\w+) generator/],
-    [CHIP, /(\w+)-compatible microchip/],
-  ].flat_map { |type, regex|
+input = ARGF.each_line.map { |l|
+  {
+    {GENERATOR, /(\w+) generator/},
+    {CHIP, /(\w+)-compatible microchip/},
+  }.flat_map { |type, regex|
     l.scan(regex).map { |x|
-      element = elements[x[0]] ||= elements.size
+      element = elements[x[1]] ||= elements.size.to_u8
       element << TYPE_BITS | type
-    }
+    }.to_a
   }
-}
+}.to_a
 
-solve[input, elements]
+solve.call(input, elements)
 
-input[0].concat((0...4).map { |x| x + (elements.size << TYPE_BITS) })
-%w(elerium dilithium).each { |e| elements[e] = elements.size }
+input[0].concat((0_u8...4_u8).map { |x| x + (elements.size << TYPE_BITS) })
+%w(elerium dilithium).each { |e| elements[e] = elements.size.to_u8 }
 
 # for the example input,
 # adding the two generators to floor 1 would immediately fry the two chips there,
 # so there's no point in doing part 2 for the example input
-solve[input, elements] unless part_1_only
+solve.call(input, elements) unless part_1_only
