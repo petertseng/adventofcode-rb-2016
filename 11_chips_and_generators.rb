@@ -19,29 +19,15 @@ module State; refine Array do
     # We can't move an A chip and B generator together,
     # because the A chip will certainly get fried.
     # So, our choices for twos: two chips or two generators or a pair.
-    two_choices = chips.combination(2).to_a
+    two_choices = chips.combination(2).to_a + gens.combination(2).to_a
 
     # If there is a pair, it doesn't matter which one.
     paired_chip = chips.find { |c| gens.include?(c | GENERATOR) }
     two_choices << [paired_chip, paired_chip | GENERATOR] if paired_chip
 
-    unpaired_gens = gens.reject { |g| chips.include?(g & ~GENERATOR) }
-
-    # If there's a paired generator plus any other,
-    # we can't move the paired generator out alone.
-    one_choices = chips + (gens.size == 1 ? gens : unpaired_gens)
-
-    # Considerations for moving two generators:
-    two_choices.concat(
-      # If there are two generators, we can always move them both out.
-      # If there is one generator, combination(2) will be empty.
-      # If there are 3+ generators, no paired generator can move.
-      gens.size == 2 ? [gens] : unpaired_gens.combination(2).to_a
-    )
-
     destinations = [elevator - 1, elevator + 1].select { |f| 0 <= f && f < size }
 
-    (two_choices + one_choices.map { |item| [item] }).flat_map { |moved|
+    (two_choices + items.map { |item| [item] }).flat_map { |moved|
       destinations.map { |dest| [moved, dest, moved.size * (dest - elevator)] }
     }
   end
@@ -125,7 +111,7 @@ def moves_to_assemble(input, verbose: false, list_moves: false)
         return prev_moves.reverse << [moved_items, floor_moved_to]
       end
 
-      next unless new_state[floor_moved_to].legal?
+      next if [floor_moved_to, elevator].any? { |f| !new_state[f].legal? }
 
       # Set ratings BEFORE pruning seen states.
       # If you can reach a seen state with a +2 move,
