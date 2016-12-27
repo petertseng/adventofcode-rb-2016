@@ -126,7 +126,7 @@ end end
 
 using State
 
-def moves_to_assemble(input, verbose: false)
+def moves_to_assemble(input, verbose: false, list_moves: false)
   # moves, state, floor
   move_queue = [[0, input, START_FLOOR]]
 
@@ -159,6 +159,8 @@ def moves_to_assemble(input, verbose: false)
       new_state = state.move(moved_items, from: elevator, to: floor_moved_to)
 
       if new_state[0..-2].all?(&:empty?)
+        return [nil] * (moves_so_far + 1) unless list_moves
+
         state_pair = state.pairs
         floor = elevator
 
@@ -181,7 +183,7 @@ def moves_to_assemble(input, verbose: false)
       # MOST IMPORTANT OPTIMISATION: ALL PAIRS ARE INTERCHANGEABLE
       prev_key = [new_state.pairs, floor_moved_to]
       next if prev.has_key?(prev_key)
-      prev[prev_key] = [state.pairs, elevator, moved_items]
+      prev[prev_key] = list_moves && [state.pairs, elevator, moved_items]
 
       move_queue << [moves_so_far + 1, new_state, floor_moved_to]
     }
@@ -202,7 +204,7 @@ solve = ->(input, elements) {
   name = ->(i) {
     "#{element_names[i >> TYPE_BITS]} #{TYPE_NAMES[i & TYPE_MASK]}"
   }
-  moves = moves_to_assemble(input, verbose: verbose)
+  moves = moves_to_assemble(input, verbose: verbose, list_moves: list)
   puts moves.size
   if list || show_state
     state = input
