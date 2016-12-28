@@ -1,3 +1,4 @@
+require_relative 'lib/branch_and_bound'
 require_relative 'lib/search'
 
 goals = []
@@ -35,7 +36,21 @@ goal_or_start = ([start_pos] + goals).to_h { |gs| [gs, true] }.freeze
   })[:goals].each { |dest, dist| dists[src][dest] = dist }
 }
 
-puts goals.permutation.map { |order| [
-  d = ([start_pos] + order).each_cons(2).sum { |a, b| dists[a][b] },
-  d + dists[order.last][start_pos],
-]}.transpose.map(&:min)
+# To turn a "best path starting from this node" problem
+# into a "best cycle" problem,
+# add a dummy node with costs:
+# * zero to the start node + from any other node (or vice versa)
+# * infinite anywhere else
+dists[:dummy][start_pos] = 0
+dists[start_pos][:dummy] = 1.0 / 0.0
+goals.each { |g|
+  dists[g][:dummy] = 0
+  dists[:dummy][g] = 1.0 / 0.0
+}
+puts BranchAndBound.best_cycle(dists)
+
+# Now we actually want a best cycle, so undo the transformation we just did.
+# BranchAndBound doesn't care if we leave dists[g][:dummy] in!
+# It's OK as long as we delete dists[:dummy]
+dists.delete(:dummy)
+puts BranchAndBound.best_cycle(dists)
