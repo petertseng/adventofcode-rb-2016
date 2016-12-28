@@ -1,4 +1,4 @@
-require_relative 'lib/branch_and_bound'
+require_relative 'lib/hamiltonian'
 require_relative 'lib/search'
 
 goals = []
@@ -47,10 +47,8 @@ goals.each { |g|
   dists[g][:dummy] = 0
   dists[:dummy][g] = 1.0 / 0.0
 }
-puts BranchAndBound.best_cycle(dists)
 
-# Now we actually want a best cycle, so undo the transformation we just did.
-# BranchAndBound doesn't care if we leave dists[g][:dummy] in!
-# It's OK as long as we delete dists[:dummy]
-dists.delete(:dummy)
-puts BranchAndBound.best_cycle(dists)
+2.times {
+  puts Graph.new(*Graph::from_hash(dists)).best[:min][:cost]
+  dists.delete(:dummy)
+}
