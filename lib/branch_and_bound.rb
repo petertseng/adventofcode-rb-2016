@@ -24,6 +24,8 @@
 module BranchAndBound
   module_function
 
+  PRINT = !ENV.has_key?('TRAVIS')
+
   def edge_to_remove(forward, reverse, left, right)
     right = forward[right] while forward.has_key?(right)
     left = reverse[left] while reverse.has_key?(left)
@@ -47,7 +49,13 @@ module BranchAndBound
     }.sum
   end
 
-  def search(stat, matrix, edges, rev_edges, bound, row_indices, col_indices)
+  def pmat(mat)
+    puts mat.map { |row|
+      row.map { |c| c == 1.0 / 0.0 ? 'inf' : ('%3d' % c) }.join(' ')
+    } if PRINT
+  end
+
+  def search(stat, path, matrix, edges, rev_edges, bound, row_indices, col_indices)
     # We should never get here if bound > stat[:best],
     # so it's safe to set it unconditionally.
     return (stat[:best] = bound) if matrix.size == 1
@@ -126,6 +134,19 @@ module BranchAndBound
     # However, if the row reduction alone would bring us over,
     # we don't need to bother doing it or the column reduction.
     left_bound = bound + rows_losing_zeroes.sum { |r| seconds_row[r] }
+    right_bound = bound + best_bound_increase
+
+    pi = ->(a) { a == 1.0 / 0.0 ? 'inf' : a.to_s }
+    p = ->(a, b, c) { puts ("%-28s [%d, %d] \e[%sm%3s\e[0m <- %3s -> \e[%sm%3s\e[0m (best %3s)" % [
+      ('  ' * path.size) + ('%-5s %-4s' % [a, b]),
+      u, v,
+      b == 'incl' ? "1;3#{a == 'open' ? 2 : 1}" : 0,
+      pi[left_bound],
+      pi[bound],
+      b == 'excl' ? "1;3#{a == 'open' ? 2 : 1}" : 0,
+      pi[right_bound],
+      pi[stat[:best]],
+    ]) if PRINT }
 
     if left_bound < stat[:best]
       left_matrix = matrix.map(&:dup)
@@ -156,6 +177,8 @@ module BranchAndBound
       left_bound += cols_losing_zeroes.sum { |c| left_seconds_col[c] }
 
       if left_bound < stat[:best]
+        p['open', 'incl', left_bound]
+
         cols_losing_zeroes.each { |c|
           second = left_seconds_col[c]
           next if second == 0
@@ -165,6 +188,7 @@ module BranchAndBound
 
         left = search(
           stat,
+          path + [:l],
           left_matrix,
           edges, rev_edges,
           left_bound,
@@ -172,14 +196,19 @@ module BranchAndBound
           col_indices.take(best_col) + col_indices.drop(best_col + 1),
         )
         best = [best, left].min
+      else
+        p['prune', 'incl', left_bound]
       end
+    else
+      # The exclamation mark tells me it's a special prune.
+      p['prun!', 'incl', left_bound]
     end
 
     edges.delete(u)
     rev_edges.delete(v)
 
-    right_bound = bound + best_bound_increase
     if right_bound < stat[:best]
+      p['open', 'excl', right_bound]
       matrix[best_row][best_col] = 1.0 / 0.0
       # Instead of using row_reduce! and col_reduce! here,
       # we only act on the row/column that lost its zero, for efficiency.
@@ -191,12 +220,15 @@ module BranchAndBound
       # and nothing comes after a right path.
       right = search(
         stat,
+        path << :r,
         matrix,
         edges, rev_edges,
         right_bound,
         row_indices, col_indices,
       )
       best = [best, right].min
+    else
+      p['prune', 'excl', right_bound]
     end
 
     best
@@ -213,9 +245,11 @@ module BranchAndBound
     mt = matrix.transpose
     bound = row_reduce!(matrix) + col_reduce!(matrix)
     boundt = row_reduce!(mt) + col_reduce!(mt)
+    pmat(boundt > bound ? mt : matrix)
 
     search(
       {best: 1.0 / 0.0},
+      [],
       boundt > bound ? mt : matrix,
       {}, {},
       [boundt, bound].max,
