@@ -24,6 +24,8 @@
 module BranchAndBound
   module_function
 
+  PRINT = !ENV.has_key?('TRAVIS')
+
   def edge_to_remove(forward, reverse, left, right)
     right = forward[right] while forward.has_key?(right)
     left = reverse[left] while reverse.has_key?(left)
@@ -47,7 +49,21 @@ module BranchAndBound
     }.sum
   end
 
-  def search(stat, matrix, edges, rev_edges, bound, row_indices, col_indices)
+  def search(stat, path, matrix, edges, rev_edges, bound, row_indices, col_indices)
+    n = ->(bnd, dir, u, v, soln: false) {
+      pthdir = path.join + dir
+      counts = "[+#{pthdir.count(?l)} -#{pthdir.count(?r)}]"
+      name = "#{dir == ?l ? ?+ : ?-} (#{stat[:name][u]}, #{stat[:name][v]})"
+      # prune was taking up too much room
+      pruned = ' (prune)' if bnd >= stat[:best] && false
+      puts "  n#{path.join}#{dir} [label=\"#{name}\\n#{counts}\\n#{bnd}#{pruned}\"#{' style="filled" fillcolor="green"' if soln}]" if PRINT
+    }
+
+    if matrix.size == 1
+      n[bound, ?l, *row_indices, *col_indices, soln: true]
+      puts "  n#{path.join} -> n#{path.join}l" if PRINT
+    end
+
     # We should never get here if bound > stat[:best],
     # so it's safe to set it unconditionally.
     return (stat[:best] = bound) if matrix.size == 1
@@ -127,6 +143,8 @@ module BranchAndBound
     # we don't need to bother doing it or the column reduction.
     left_bound = bound + rows_losing_zeroes.sum { |r| seconds_row[r] }
 
+    %w(l r).each { |d| puts "  n#{path.join} -> n#{path.join}#{d}" } if PRINT
+
     if left_bound < stat[:best]
       left_matrix = matrix.map(&:dup)
       left_block[left_matrix] if left_block
@@ -165,6 +183,7 @@ module BranchAndBound
 
         left = search(
           stat,
+          path + [:l],
           left_matrix,
           edges, rev_edges,
           left_bound,
@@ -191,6 +210,7 @@ module BranchAndBound
       # and nothing comes after a right path.
       right = search(
         stat,
+        path + [:r],
         matrix,
         edges, rev_edges,
         right_bound,
@@ -199,10 +219,14 @@ module BranchAndBound
       best = [best, right].min
     end
 
+    n[left_bound, ?l, u, v]
+    n[right_bound, ?r, u, v]
+
     best
   end
 
   def best_cycle(dists)
+    puts 'strict digraph {' if PRINT
     pos = dists.each_key.with_index.to_a
     matrix = pos.map { |u, i|
       pos.map { |v, j| i == j ? 1.0 / 0.0 : dists[u][v] }
@@ -214,12 +238,27 @@ module BranchAndBound
     bound = row_reduce!(matrix) + col_reduce!(matrix)
     boundt = row_reduce!(mt) + col_reduce!(mt)
 
+    puts "  n [label=\"root\\n#{[bound, boundt].max}\"]" if PRINT
+
+    names = (0...dists.size).to_a
+    if (i = dists.keys.index(:dummy))
+      if i == 0
+        names.pop
+        names.unshift(:dummy)
+      elsif i == dists.size - 1
+        names[-1] = :dummy
+      else
+        raise "Unknown dummy position #{i} of #{dists.size}"
+      end
+    end
+
     search(
-      {best: 1.0 / 0.0},
+      {best: 1.0 / 0.0, name: names.freeze},
+      [],
       boundt > bound ? mt : matrix,
       {}, {},
       [boundt, bound].max,
       *2.times.map { (0...matrix.size).to_a },
-    )
+    ).tap { puts ?} if PRINT }
   end
 end
