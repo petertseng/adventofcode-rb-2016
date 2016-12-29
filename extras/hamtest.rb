@@ -1,4 +1,5 @@
 require_relative '../lib/branch_and_bound'
+require_relative '../lib/hamiltonian'
 
 dists = {}
 
@@ -11,6 +12,10 @@ dists = {}
 
 t = Time.now
 puts BranchAndBound.best_cycle(dists)
+puts Time.now - t
+
+t = Time.now
+puts Graph.new(*Graph::from_hash(dists)).best[:min][:cost]
 puts Time.now - t
 
 # http://people.sc.fsu.edu/~jburkardt/datasets/tsp/tsp.html
