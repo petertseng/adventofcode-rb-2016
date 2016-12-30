@@ -7,7 +7,7 @@ def decompress(input, deep: false)
       close_paren = input.index(?), i + 1)
       chars, times = input[(i + 1)...close_paren].split(?x).map(&method(:Integer))
       if deep
-        subseq = input[(close_paren + 1)...(close_paren + 1 + chars)]
+        subseq = input[close_paren + 1, chars]
         length += decompress(subseq, deep: true) * times
       else
         length += chars * times
