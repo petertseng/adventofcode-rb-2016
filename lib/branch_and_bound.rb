@@ -47,10 +47,10 @@ module BranchAndBound
     }.sum
   end
 
-  def search(stat, matrix, edges, rev_edges, bound, row_indices, col_indices)
+  def search(stat, matrix, edges, rev_edges, bound)
     # We should never get here if bound > stat[:best],
     # so it's safe to set it unconditionally.
-    return (stat[:best] = bound) if matrix.size == 1
+    return (stat[:best] = bound) if matrix.size - edges.size == 1
 
     mins_row = Array.new(matrix.size, 1.0 / 0.0)
     seconds_row = Array.new(matrix.size, 1.0 / 0.0)
@@ -91,26 +91,25 @@ module BranchAndBound
       }
     }
 
-    u = row_indices[best_row]
-    v = col_indices[best_col]
-    edges[u] = v
-    rev_edges[v] = u
+    edges[best_row] = best_col
+    rev_edges[best_col] = best_row
 
     rows_losing_zeroes = []
     cols_losing_zeroes = []
     left_block = nil
+    left_restore = nil
 
     # Search left: Include the edge
     # (delete its row/column, exclude edge that would make cycle).
-    if matrix.size > 2
-      vdel, udel = edge_to_remove(edges, rev_edges, u, v)
-      vv = row_indices.index(vdel)
-      uu = col_indices.index(udel)
-      if matrix[vv][uu] == 0
-        rows_losing_zeroes << vv
-        cols_losing_zeroes << uu
+    if matrix.size - edges.size > 2
+      vdel, udel = edge_to_remove(edges, rev_edges, best_row, best_col)
+      left_blocked_val = matrix[vdel][udel]
+      if left_blocked_val == 0
+        rows_losing_zeroes << vdel
+        cols_losing_zeroes << udel
       end
-      left_block = ->(left_matrix) { left_matrix[vv][uu] = 1.0 / 0.0 }
+      left_block = ->(left_matrix) { left_matrix[vdel][udel] = 1.0 / 0.0 }
+      left_restore = ->(left_matrix) { left_matrix[vdel][udel] = left_blocked_val }
     end
     matrix.each_with_index { |row, r|
       rows_losing_zeroes << r if row[best_col] == 0
@@ -128,11 +127,13 @@ module BranchAndBound
     left_bound = bound + rows_losing_zeroes.sum { |r| seconds_row[r] }
 
     if left_bound < stat[:best]
-      left_matrix = matrix.map(&:dup)
-      left_block[left_matrix] if left_block
-      deleted_row = left_matrix.delete_at(best_row)
+      deleted_row = matrix[best_row].dup
       deleted_row.each_with_index { |d, c| cols_losing_zeroes << c if d == 0 }
-      left_matrix.each { |row| row.delete_at(best_col) }
+      deleted_col = matrix.map { |row| row[best_col]  }
+
+      matrix[best_row].fill(1.0 / 0.0)
+      matrix.each { |row| row[best_col] = 1.0 / 0.0 }
+      left_block[matrix] if left_block
 
       left_seconds_col = seconds_col.dup
 
@@ -141,11 +142,10 @@ module BranchAndBound
       rows_losing_zeroes.each { |r|
         second = seconds_row[r]
         next if second == 0
-        left_matrix[r >= best_row ? r - 1 : r].map!.with_index { |x, c|
+        matrix[r].map!.with_index { |x, c|
           (x - second).tap { |newval|
             # Did second-min change?
-            real_c = c >= best_col ? c + 1 : c
-            left_seconds_col[real_c] = [left_seconds_col[real_c], newval].min
+            left_seconds_col[c] = [left_seconds_col[c], newval].min
           }
         }
       }
@@ -159,27 +159,41 @@ module BranchAndBound
         cols_losing_zeroes.each { |c|
           second = left_seconds_col[c]
           next if second == 0
-          real_c = c >= best_col ? c - 1 : c
-          left_matrix.each { |row| row[real_c] -= second }
+          matrix.each { |row| row[c] -= second }
         }
 
         left = search(
           stat,
-          left_matrix,
+          matrix,
           edges, rev_edges,
           left_bound,
-          row_indices.take(best_row) + row_indices.drop(best_row + 1),
-          col_indices.take(best_col) + col_indices.drop(best_col + 1),
         )
         best = [best, left].min
+
+        cols_losing_zeroes.each { |c|
+          second = left_seconds_col[c]
+          next if second == 0
+          matrix.each { |row| row[c] += second }
+        }
       end
+
+      rows_losing_zeroes.each { |r|
+        second = seconds_row[r]
+        next if second == 0
+        matrix[r].map! { |x| x + second }
+      }
+
+      left_restore[matrix] if left_restore
+      matrix.each_with_index { |row, i| row[best_col] = deleted_col[i] }
+      matrix[best_row] = deleted_row
     end
 
-    edges.delete(u)
-    rev_edges.delete(v)
+    edges.delete(best_row)
+    rev_edges.delete(best_col)
 
     right_bound = bound + best_bound_increase
     if right_bound < stat[:best]
+      saved = matrix[best_row][best_col]
       matrix[best_row][best_col] = 1.0 / 0.0
       # Instead of using row_reduce! and col_reduce! here,
       # we only act on the row/column that lost its zero, for efficiency.
@@ -194,9 +208,13 @@ module BranchAndBound
         matrix,
         edges, rev_edges,
         right_bound,
-        row_indices, col_indices,
       )
       best = [best, right].min
+
+      # Restore.
+      matrix[best_row].map! { |x| x + row_reduce } if row_reduce > 0
+      matrix.each { |row| row[best_col] += col_reduce } if col_reduce > 0
+      matrix[best_row][best_col] = saved
     end
 
     best
@@ -219,7 +237,6 @@ module BranchAndBound
       boundt > bound ? mt : matrix,
       {}, {},
       [boundt, bound].max,
-      *2.times.map { (0...matrix.size).to_a },
     )
   end
 end
