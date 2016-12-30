@@ -98,10 +98,10 @@ module BranchAndBound
 
     rows_losing_zeroes = []
     cols_losing_zeroes = []
+    left_block = nil
 
     # Search left: Include the edge
     # (delete its row/column, exclude edge that would make cycle).
-    left_matrix = matrix.map(&:dup)
     if matrix.size > 2
       vdel, udel = edge_to_remove(edges, rev_edges, u, v)
       vv = row_indices.index(vdel)
@@ -110,55 +110,69 @@ module BranchAndBound
         rows_losing_zeroes << vv
         cols_losing_zeroes << uu
       end
-      left_matrix[vv][uu] = 1.0 / 0.0
+      left_block = ->(left_matrix) { left_matrix[vv][uu] = 1.0 / 0.0 }
     end
     matrix.each_with_index { |row, r|
       rows_losing_zeroes << r if row[best_col] == 0
     }
-    deleted_row = left_matrix.delete_at(best_row)
-    deleted_row.each_with_index { |d, c| cols_losing_zeroes << c if d == 0 }
-    left_matrix.each { |row| row.delete_at(best_col) }
-
-    left_bound = bound
-
-    left_seconds_col = seconds_col.dup
-
-    # Instead of using row_reduce! and col_reduce! here,
-    # we only act on the rows/columns that lost zeroes, for efficiency.
-    rows_losing_zeroes.uniq.each { |r|
-      next if r == best_row
-      second = seconds_row[r]
-      next if second == 0
-      left_matrix[r >= best_row ? r - 1 : r].map!.with_index { |x, c|
-        (x - second).tap { |newval|
-          # Did second-min change?
-          real_c = c >= best_col ? c + 1 : c
-          left_seconds_col[real_c] = [left_seconds_col[real_c], newval].min
-        }
-      }
-      left_bound += second
-    }
-    cols_losing_zeroes.uniq.each { |c|
-      next if c == best_col
-      second = left_seconds_col[c]
-      next if second == 0
-      real_c = c >= best_col ? c - 1 : c
-      left_matrix.each { |row| row[real_c] -= second }
-      left_bound += second
-    }
 
     best = 1.0 / 0.0
 
+    rows_losing_zeroes.uniq!
+    rows_losing_zeroes.delete(best_row)
+
+    # We can't add the column seconds yet,
+    # since they might change on row reduction.
+    # However, if the row reduction alone would bring us over,
+    # we don't need to bother doing it or the column reduction.
+    left_bound = bound + rows_losing_zeroes.sum { |r| seconds_row[r] }
+
     if left_bound < stat[:best]
-      left = search(
-        stat,
-        left_matrix,
-        edges, rev_edges,
-        left_bound,
-        row_indices.take(best_row) + row_indices.drop(best_row + 1),
-        col_indices.take(best_col) + col_indices.drop(best_col + 1),
-      )
-      best = [best, left].min
+      left_matrix = matrix.map(&:dup)
+      left_block[left_matrix] if left_block
+      deleted_row = left_matrix.delete_at(best_row)
+      deleted_row.each_with_index { |d, c| cols_losing_zeroes << c if d == 0 }
+      left_matrix.each { |row| row.delete_at(best_col) }
+
+      left_seconds_col = seconds_col.dup
+
+      # Instead of using row_reduce! and col_reduce! here,
+      # we only act on the rows/columns that lost zeroes, for efficiency.
+      rows_losing_zeroes.each { |r|
+        second = seconds_row[r]
+        next if second == 0
+        left_matrix[r >= best_row ? r - 1 : r].map!.with_index { |x, c|
+          (x - second).tap { |newval|
+            # Did second-min change?
+            real_c = c >= best_col ? c + 1 : c
+            left_seconds_col[real_c] = [left_seconds_col[real_c], newval].min
+          }
+        }
+      }
+
+      cols_losing_zeroes.uniq!
+      cols_losing_zeroes.delete(best_col)
+
+      left_bound += cols_losing_zeroes.sum { |c| left_seconds_col[c] }
+
+      if left_bound < stat[:best]
+        cols_losing_zeroes.each { |c|
+          second = left_seconds_col[c]
+          next if second == 0
+          real_c = c >= best_col ? c - 1 : c
+          left_matrix.each { |row| row[real_c] -= second }
+        }
+
+        left = search(
+          stat,
+          left_matrix,
+          edges, rev_edges,
+          left_bound,
+          row_indices.take(best_row) + row_indices.drop(best_row + 1),
+          col_indices.take(best_col) + col_indices.drop(best_col + 1),
+        )
+        best = [best, left].min
+      end
     end
 
     edges.delete(u)
