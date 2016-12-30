@@ -24,10 +24,7 @@
 module BranchAndBound
   module_function
 
-  def edge_to_remove(edges, left, right)
-    forward = edges.to_h
-    reverse = forward.invert
-
+  def edge_to_remove(forward, reverse, left, right)
     right = forward[right] while forward.has_key?(right)
     left = reverse[left] while reverse.has_key?(left)
     [right, left]
@@ -50,7 +47,7 @@ module BranchAndBound
     }.sum
   end
 
-  def search(stat, matrix, edges, bound, row_indices, col_indices)
+  def search(stat, matrix, edges, rev_edges, bound, row_indices, col_indices)
     # We should never get here if bound > stat[:best],
     # so it's safe to set it unconditionally.
     return (stat[:best] = bound) if matrix.size == 1
@@ -76,12 +73,14 @@ module BranchAndBound
 
     u = row_indices[best_row]
     v = col_indices[best_col]
+    edges[u] = v
+    rev_edges[v] = u
 
     # Search left: Include the edge
     # (delete its row/column, exclude edge that would make cycle).
     left_matrix = matrix.map(&:dup)
     if matrix.size > 2
-      vdel, udel = edge_to_remove(edges, u, v)
+      vdel, udel = edge_to_remove(edges, rev_edges, u, v)
       vv = row_indices.index(vdel)
       uu = col_indices.index(udel)
       left_matrix[vv][uu] = 1.0 / 0.0
@@ -97,13 +96,16 @@ module BranchAndBound
       left = search(
         stat,
         left_matrix,
-        edges + [[u, v].freeze],
+        edges, rev_edges,
         left_bound,
         row_indices.take(best_row) + row_indices.drop(best_row + 1),
         col_indices.take(best_col) + col_indices.drop(best_col + 1),
       )
       best = [best, left].min
     end
+
+    edges.delete(u)
+    rev_edges.delete(v)
 
     right_bound = bound + best_bound_increase
     if right_bound < stat[:best]
@@ -117,7 +119,7 @@ module BranchAndBound
       right = search(
         stat,
         matrix,
-        edges,
+        edges, rev_edges,
         right_bound,
         row_indices, col_indices,
       )
@@ -142,7 +144,7 @@ module BranchAndBound
     search(
       {best: 1.0 / 0.0},
       boundt > bound ? mt : matrix,
-      [],
+      {}, {},
       [boundt, bound].max,
       *2.times.map { (0...matrix.size).to_a },
     )
