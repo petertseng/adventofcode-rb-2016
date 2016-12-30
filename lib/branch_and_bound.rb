@@ -52,8 +52,28 @@ module BranchAndBound
     # so it's safe to set it unconditionally.
     return (stat[:best] = bound) if matrix.size == 1
 
-    seconds_row = matrix.map { |row| row.sort[1] }
-    seconds_col = matrix.transpose.map { |col| col.sort[1] }
+    mins_row = Array.new(matrix.size, 1.0 / 0.0)
+    seconds_row = Array.new(matrix.size, 1.0 / 0.0)
+    mins_col = Array.new(matrix.size, 1.0 / 0.0)
+    seconds_col = Array.new(matrix.size, 1.0 / 0.0)
+
+    matrix.each_with_index { |row, r|
+      row.each_with_index { |val, c|
+        if val < mins_row[r]
+          seconds_row[r] = mins_row[r]
+          mins_row[r] = val
+        elsif val < seconds_row[r]
+          seconds_row[r] = val
+        end
+
+        if val < mins_col[c]
+          seconds_col[c] = mins_col[c]
+          mins_col[c] = val
+        elsif val < seconds_col[c]
+          seconds_col[c] = val
+        end
+      }
+    }
 
     best_bound_increase = -1
     best_col = nil
