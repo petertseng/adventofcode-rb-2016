@@ -18,6 +18,9 @@ CYCLES = 100
 EXPECTED = ([0, 1] * CYCLES).freeze
 
 0.step { |a|
-  _, good_outs = assembler.run({a: a, b: 0, c: 0, d: 0}, outs: EXPECTED)
+  _, good_outs = assembler.run(
+    {a: a, b: 0, c: 0, d: 0},
+    outs: EXPECTED,
+  )
   (puts a; break) if good_outs == EXPECTED.size
 }
