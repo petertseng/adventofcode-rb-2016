@@ -96,6 +96,9 @@ module BranchAndBound
     edges[u] = v
     rev_edges[v] = u
 
+    rows_losing_zeroes = []
+    cols_losing_zeroes = []
+
     # Search left: Include the edge
     # (delete its row/column, exclude edge that would make cycle).
     left_matrix = matrix.map(&:dup)
@@ -103,12 +106,46 @@ module BranchAndBound
       vdel, udel = edge_to_remove(edges, rev_edges, u, v)
       vv = row_indices.index(vdel)
       uu = col_indices.index(udel)
+      if matrix[vv][uu] == 0
+        rows_losing_zeroes << vv
+        cols_losing_zeroes << uu
+      end
       left_matrix[vv][uu] = 1.0 / 0.0
     end
-    left_matrix.delete_at(best_row)
+    matrix.each_with_index { |row, r|
+      rows_losing_zeroes << r if row[best_col] == 0
+    }
+    deleted_row = left_matrix.delete_at(best_row)
+    deleted_row.each_with_index { |d, c| cols_losing_zeroes << c if d == 0 }
     left_matrix.each { |row| row.delete_at(best_col) }
 
-    left_bound = bound + row_reduce!(left_matrix) + col_reduce!(left_matrix)
+    left_bound = bound
+
+    left_seconds_col = seconds_col.dup
+
+    # Instead of using row_reduce! and col_reduce! here,
+    # we only act on the rows/columns that lost zeroes, for efficiency.
+    rows_losing_zeroes.uniq.each { |r|
+      next if r == best_row
+      second = seconds_row[r]
+      next if second == 0
+      left_matrix[r >= best_row ? r - 1 : r].map!.with_index { |x, c|
+        (x - second).tap { |newval|
+          # Did second-min change?
+          real_c = c >= best_col ? c + 1 : c
+          left_seconds_col[real_c] = [left_seconds_col[real_c], newval].min
+        }
+      }
+      left_bound += second
+    }
+    cols_losing_zeroes.uniq.each { |c|
+      next if c == best_col
+      second = left_seconds_col[c]
+      next if second == 0
+      real_c = c >= best_col ? c - 1 : c
+      left_matrix.each { |row| row[real_c] -= second }
+      left_bound += second
+    }
 
     best = 1.0 / 0.0
 
