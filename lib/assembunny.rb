@@ -73,7 +73,7 @@ module Assembunny class Interpreter
     opt.freeze
   end
 
-  def run(regs, outs: [], debug: false)
+  def run(regs, outs: [], debug: false, max_vt: 1.0 / 0.0)
     toggles = @original.map { false }
     optimised = optimise(@original)
 
@@ -101,7 +101,7 @@ module Assembunny class Interpreter
     }
     add_debug[]
 
-    while pc >= -1 && (inst = optimised[pc += 1])
+    while vt <= max_vt && pc >= -1 && (inst = optimised[pc += 1])
       t += 1
       vt += 1
       case inst[0]
