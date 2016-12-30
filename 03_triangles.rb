@@ -6,7 +6,5 @@ end
 
 puts input.count { |x| tri?(*x.sort) }
 puts input.each_slice(3).sum { |rows|
-  [0, 1, 2].count { |col|
-    tri?(*rows.map { |r| r[col] }.sort)
-  }
+  rows.transpose.count { |x| tri?(*x.sort) }
 }
