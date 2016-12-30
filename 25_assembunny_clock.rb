@@ -21,6 +21,7 @@ EXPECTED = ([0, 1] * CYCLES).freeze
   _, good_outs = assembler.run(
     {a: a, b: 0, c: 0, d: 0},
     outs: EXPECTED,
+    max_vt: CYCLES * 1_000_000,
   )
   (puts a; break) if good_outs == EXPECTED.size
 }
