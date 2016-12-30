@@ -21,16 +21,21 @@
 # since it makes smart choices about which edge to consider first.
 #
 # Thus, it is the method used below.
-module BranchAndBound
-  module_function
 
-  def edge_to_remove(forward, reverse, left, right)
-    right = forward[right] while forward.has_key?(right)
-    left = reverse[left] while reverse.has_key?(left)
-    [right, left]
+alias Distance = Int32 | Float64
+
+module BranchAndBound
+  def self.edge_to_remove(forward, reverse, left, right)
+    while forward.has_key?(right)
+      right = forward[right]
+    end
+    while reverse.has_key?(left)
+      left = reverse[left]
+    end
+    {right, left}
   end
 
-  def row_reduce!(matrix)
+  def self.row_reduce!(matrix)
     matrix.sum { |row|
       m = row.min
       row.map! { |x| x - m }
@@ -38,24 +43,28 @@ module BranchAndBound
     }
   end
 
-  def col_reduce!(matrix)
+  def self.col_reduce!(matrix)
     cols = matrix.transpose
-    cols.map.with_index { |col, i|
+    cols.map_with_index { |col, i|
       m = col.min
       matrix.each { |row| row[i] -= m }
       m
     }.sum
   end
 
-  def search(stat, matrix, edges, rev_edges, bound, row_indices, col_indices)
+  def self.search(stat, matrix, edges, rev_edges, bound, row_indices, col_indices)
     # We should never get here if bound > stat[:best],
     # so it's safe to set it unconditionally.
-    return (stat[:best] = bound) if matrix.size == 1
+    if matrix.size == 1
+      # Crystal implementation not bound to a test, so I'm OK with always printing.
+      puts "#{Time.utc}: #{bound}"
+      return (stat[:best] = bound)
+    end
 
-    mins_row = Array.new(matrix.size, 1.0 / 0.0)
-    seconds_row = Array.new(matrix.size, 1.0 / 0.0)
-    mins_col = Array.new(matrix.size, 1.0 / 0.0)
-    seconds_col = Array.new(matrix.size, 1.0 / 0.0)
+    mins_row = Array(Distance).new(matrix.size, 1.0 / 0.0)
+    seconds_row = Array(Distance).new(matrix.size, 1.0 / 0.0)
+    mins_col = Array(Distance).new(matrix.size, 1.0 / 0.0)
+    seconds_col = Array(Distance).new(matrix.size, 1.0 / 0.0)
 
     matrix.each_with_index { |row, r|
       row.each_with_index { |val, c|
@@ -91,26 +100,29 @@ module BranchAndBound
       }
     }
 
+    best_row = best_row.not_nil!
+    best_col = best_col.not_nil!
+
     u = row_indices[best_row]
     v = col_indices[best_col]
     edges[u] = v
     rev_edges[v] = u
 
-    rows_losing_zeroes = []
-    cols_losing_zeroes = []
+    rows_losing_zeroes = [] of Int32
+    cols_losing_zeroes = [] of Int32
     left_block = nil
 
     # Search left: Include the edge
     # (delete its row/column, exclude edge that would make cycle).
     if matrix.size > 2
       vdel, udel = edge_to_remove(edges, rev_edges, u, v)
-      vv = row_indices.index(vdel)
-      uu = col_indices.index(udel)
+      vv = row_indices.index(vdel).not_nil!
+      uu = col_indices.index(udel).not_nil!
       if matrix[vv][uu] == 0
         rows_losing_zeroes << vv
         cols_losing_zeroes << uu
       end
-      left_block = ->(left_matrix) { left_matrix[vv][uu] = 1.0 / 0.0 }
+      left_block = ->(left_matrix: Array(Array(Distance))) { left_matrix[vv][uu] = 1.0 / 0.0 }
     end
     matrix.each_with_index { |row, r|
       rows_losing_zeroes << r if row[best_col] == 0
@@ -128,8 +140,8 @@ module BranchAndBound
     left_bound = bound + rows_losing_zeroes.sum { |r| seconds_row[r] }
 
     if left_bound < stat[:best]
-      left_matrix = matrix.map(&:dup)
-      left_block[left_matrix] if left_block
+      left_matrix = matrix.map(&.dup)
+      left_block.call(left_matrix) if left_block
       deleted_row = left_matrix.delete_at(best_row)
       deleted_row.each_with_index { |d, c| cols_losing_zeroes << c if d == 0 }
       left_matrix.each { |row| row.delete_at(best_col) }
@@ -141,11 +153,12 @@ module BranchAndBound
       rows_losing_zeroes.each { |r|
         second = seconds_row[r]
         next if second == 0
-        left_matrix[r >= best_row ? r - 1 : r].map!.with_index { |x, c|
+        real_r = r >= best_row ? r - 1 : r
+        left_matrix[real_r] = left_matrix[real_r].map_with_index { |x, c|
           (x - second).tap { |newval|
             # Did second-min change?
             real_c = c >= best_col ? c + 1 : c
-            left_seconds_col[real_c] = [left_seconds_col[real_c], newval].min
+            left_seconds_col[real_c] = {left_seconds_col[real_c], newval}.min
           }
         }
       }
@@ -168,8 +181,8 @@ module BranchAndBound
           left_matrix,
           edges, rev_edges,
           left_bound,
-          row_indices.take(best_row) + row_indices.drop(best_row + 1),
-          col_indices.take(best_col) + col_indices.drop(best_col + 1),
+          row_indices[0...best_row] + row_indices[(best_row + 1)..-1],
+          col_indices[0...best_col] + col_indices[(best_col + 1)..-1],
         )
         best = [best, left].min
       end
@@ -196,13 +209,13 @@ module BranchAndBound
         right_bound,
         row_indices, col_indices,
       )
-      best = [best, right].min
+      best = {best, right}.min
     end
 
     best
   end
 
-  def best_cycle(dists)
+  def self.best_cycle(dists)
     pos = dists.each_key.with_index.to_a
     matrix = pos.map { |u, i|
       pos.map { |v, j| i == j ? 1.0 / 0.0 : dists[u][v] }
@@ -215,11 +228,12 @@ module BranchAndBound
     boundt = row_reduce!(mt) + col_reduce!(mt)
 
     search(
-      {best: 1.0 / 0.0},
+      {:best => 1.0 / 0.0},
       boundt > bound ? mt : matrix,
-      {}, {},
-      [boundt, bound].max,
-      *2.times.map { (0...matrix.size).to_a },
+      {} of Int32 => Int32, {} of Int32 => Int32,
+      {boundt, bound}.max,
+      (0...matrix.size).to_a,
+      (0...matrix.size).to_a,
     )
   end
 end
