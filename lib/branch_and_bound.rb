@@ -110,10 +110,12 @@ module BranchAndBound
     right_bound = bound + best_bound_increase
     if right_bound < stat[:best]
       matrix[best_row][best_col] = 1.0 / 0.0
-      # We do expect that bound + row_reduce! + col_reduce! == right_bound
-      # We don't need to check this.
-      row_reduce!(matrix)
-      col_reduce!(matrix)
+      # Instead of using row_reduce! and col_reduce! here,
+      # we only act on the row/column that lost its zero, for efficiency.
+      row_reduce = seconds_row[best_row]
+      matrix[best_row].map! { |x| x - row_reduce } if row_reduce > 0
+      col_reduce = seconds_col[best_col]
+      matrix.each { |row| row[best_col] -= col_reduce } if col_reduce > 0
       # We can reuse everything; left paths copied everything already,
       # and nothing comes after a right path.
       right = search(
