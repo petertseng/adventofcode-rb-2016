@@ -74,6 +74,8 @@ module Assembunny class Interpreter
   end
 
   def run(regs, outs: [], debug: false, max_vt: 1.0 / 0.0, opt: true)
+    store_outs = outs == :store
+    outs = [] if store_outs
     toggles = @original.map { false }
     optimised = opt ? optimise(@original) : @original
 
@@ -138,9 +140,13 @@ module Assembunny class Interpreter
           add_debug[]
         end
       when :out
-        break if val[inst[1]] != outs[good_outs]
-        good_outs += 1
-        break if good_outs == outs.size
+        if store_outs
+          outs << val[inst[1]]
+        else
+          break if val[inst[1]] != outs[good_outs]
+          good_outs += 1
+          break if good_outs == outs.size
+        end
       else raise "Unknown instruction #{inst}"
       end
     end
@@ -174,6 +180,6 @@ module Assembunny class Interpreter
       }
     end
 
-    [regs, good_outs]
+    [regs, store_outs ? outs : good_outs]
   end
 end end
