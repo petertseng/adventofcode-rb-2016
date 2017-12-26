@@ -56,6 +56,66 @@ Some may additionally support other ways:
 * 19 (Josephus): Pass the number of elves in ARGV.
 * 22 (Grid Computing): To show the map, use the `-m` flag.
 
+# Highlights
+
+Solutions with interesting algorithmic choices:
+
+* 11 (Chips and Generators):
+  Plain breadth-first search, but pruning equivalent states since all generator-microchip pairs are indistinguishable from one another.
+  I [explained on Reddit](https://www.reddit.com/r/adventofcode/comments/5hoia9/2016_day_11_solutions/db1v1ws/).
+  Note that there are [implementations](https://www.reddit.com/r/adventofcode/comments/5i1blt/2016_day_11_c_both_parts_in_10_milliseconds/) using even more compact representations that allow bitwise operations to check move legality.
+* 15 (Timing Discs):
+  Modular arithmetic, using modular inverses to determine how far each disc must spin, and noting that further alignments only happen at the LCM of the periods.
+* 16 (Dragon Checksum):
+  Every full (input + input reversed and negated) pair is known to increase the number of ones by exactly the size of the input, so the only things left are to deal with partial chunks and to calculate the parity of the Dragon sequence.
+  I [discussed on Reddit](https://www.reddit.com/r/adventofcode/comments/5imh3d/2016_day_16_solutions/db9erfp/), leading to [my method of calculating Dragon parity in O(log n)](https://www.reddit.com/r/adventofcode/comments/5imh3d/2016_day_16_solutions/db9w7im/).
+  Before I had even discovered that, askalski had already [taken to the next level](https://www.reddit.com/r/adventofcode/comments/5ititq/2016_day_16_c_how_to_tame_your_dragon_in_under_a/) by finding Dragon parity in O(1) time.
+* 18 (It's a Trap!):
+  It's left XOR right.
+* 19 (Josephus):
+  Mostly explained in comments, but it started with me [musing on Reddit](https://www.reddit.com/r/adventofcode/comments/5j4lp1/2016_day_19_solutions/dbdh7i2/) how to determine the winner of N from N - 1 and going from there.
+* 21 (Scrambled Passwords):
+  Undo each operation rather than brute-forcing. Note that "rotate based on position" is quite interesting.
+* 22 (Grid Computing):
+ Naively move the empty space to the top, then use math to figure out how many steps it takes to move it to the side, assuming no walls in the top two rows.
+* 12, 23, 25 (Assembunny):
+  Optimises out sequences of the form:
+  * `x += y`
+  * `x += y * z`
+  * `q, r = x / d, d - (x % d)` (only applicable for 25)
+
+Solutions notable for good leaderboard-related reasons:
+
+* 8 (Two-Factor Authentication): A [leaderboard](http://adventofcode.com/2016/leaderboard/day/8) performance that I have **never** matched since, not even in 2017!
+
+Solutions notable for bad leaderboard-related reasons:
+
+* 7 (IPv7):
+  Reading comprehension failure: read "doesn't contain an ABBA in brackets" as "ignore any ABBA in brackets" so falsely accepted `abba[abba]`.
+* 12 (Assembunny): Lost time on easy mistakes:
+    * Accidentally making decrement increment, because of copy-and-paste coding.
+    * Having JNZ do nothing when the register was 0 (just repeatedly executing the same JNZ) instead of advancing the PC.
+* 13 (Maze) part 2:
+  A silly bug (`wall?(x, y)` instead of `wall?(nx, ny)`) meant walls were visitable but with no neighbours, giving a correct answer for part 1 but an incorrect answer for part 2.
+  Significant time loss debugging this, including time lost assuming that I was right and the site was wrong.
+  Only found out something was wrong by printing out all visited non-walls with O and realising that the count of Os was different than the visited count that the code reported.
+* 14 (One-Time Pad):
+  Noted in comments; premature optimisation led to buggy solution.
+* 16 (Dragon Checksum) part 2:
+  Used string instead of bool.
+  Ran out of memory and had to reboot computer.
+* 23 (Assembunny II):
+  Attempted to use Assembunny to C translator, seeing too late that `tgl` was specifically designed to prevent it.
+  [Didn't stop askalski from doing it anyway](https://www.reddit.com/r/adventofcode/comments/5jvbzt/2016_day_23_solutions/dbjbnbl/).
+  Assembunny I code was not in reasonable shape to be reused easily.
+  Lesson learned: Ensure all code is reasonably extensible.
+* 24 (Hamiltonian):
+  Used `OPEN[ny, nx]` instead of `OPEN[ny][nx]`, meaning robot was ignoring all walls.
+  Once again, assumed I was right and site was wrong.
+  Printing out paths robot is taking made this clear.
+  Statically-checked types would have helped, since `OPEN[ny, nx]` is of type `[bool]` whereas `OPEN[ny][nx]` is of type `bool`.
+  On the bright side, I learn about `array[start, length]` and thus use it intentionally many times in 2017.
+
 # Posting schedule and policy
 
 Before I post my day N solution, the day N leaderboard **must** be full.
