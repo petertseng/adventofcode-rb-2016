@@ -1,5 +1,7 @@
 # adventofcode-rb-2016
 
+[![Build Status](https://travis-ci.org/petertseng/adventofcode-rb-2016.svg?branch=master)](https://travis-ci.org/petertseng/adventofcode-rb-2016)
+
 I'm reluctantly doing [Advent of Code](http://adventofcode.com) again.
 
 I say "reluctantly" because I got dragged into it by a friend midway through last year, and felt the need to follow through.
