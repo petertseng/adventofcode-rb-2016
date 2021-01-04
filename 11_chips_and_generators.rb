@@ -57,10 +57,26 @@ module State; refine Array do
         when 1
           gen = unpaired_chips[0] | GENERATOR
           # We must move the unpaired chip's generator in.
-          movable_gens1.include?(gen) ? [
-            [gen],
-            (movable_gens1 - [gen]).map { |g| [g, gen] },
-          ] : [[], []]
+          movable_by_itself = movable_gens1.include?(gen)
+          [
+            # That generator can move in by itself if it was movable by itself.
+            movable_by_itself ? [gen] : [],
+            # Moves for which that generator can move in with another:
+            if movable_by_itself
+              if gens.size == 2
+                # Note that the other generator may not have been movable by itself:
+                # It may have been a pair on the source floor,
+                # in which case moving it by itself would cause its chip to fry,
+                # but moving both the generators together solves that problem.
+                [gens]
+              else
+                # move it with all the other gens that would have been movable by themselves.
+                (movable_gens1 - [gen]).map { |g| [g, gen] }
+              end
+            else
+              []
+            end
+          ]
         when 2
           needed_gens = unpaired_chips.map { |c| c | GENERATOR }
           # We must move both unpaired chips' generators in.
