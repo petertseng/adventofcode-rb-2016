@@ -19,16 +19,19 @@ module State; refine Array do
     # We can't move an A chip and B generator together,
     # because the A chip will certainly get fried.
     # So, our choices for twos: two chips or two generators or a pair.
+    orig_two_choices = chips.combination(2).to_a
 
     # If there is a pair, it doesn't matter which one.
     paired_chip = chips.find { |c| gens.include?(c | GENERATOR) }
     pair = paired_chip && [paired_chip, paired_chip | GENERATOR]
+    orig_two_choices << pair if pair
 
     unpaired_gens = gens.reject { |g| chips.include?(g & ~GENERATOR) }
 
     # If there's a paired generator plus any other,
     # we can't move the paired generator out alone.
     movable_gens1 = (gens.size == 1 ? gens : unpaired_gens).freeze
+    orig_one_choices = chips + movable_gens1
 
     # Considerations for moving two generators:
     # If there are two generators, we can always move them both out.
@@ -36,6 +39,7 @@ module State; refine Array do
     # If there are 3+ generators, no paired generator can move.
     movable_gens2 = gens.size == 2 ? [gens] : unpaired_gens.combination(2).to_a
     movable_gens2.freeze
+    orig_two_choices.concat(movable_gens2)
 
     destinations = [elevator - 1, elevator + 1].select { |f| 0 <= f && f < size }
 
@@ -99,8 +103,31 @@ module State; refine Array do
 
       (two_choices + one_choices.map { |item| [item] }).map { |moved|
         [moved, dest, moved.size * (dest - elevator)]
+      }.tap { |claimed_legal|
+        claimed_legal = claimed_legal.map { |a, _, _| a.sort }
+        orig_choices = orig_two_choices.map(&:sort) + orig_one_choices.map { |item| [item] }
+        orig_legal = orig_choices.select { |moved|
+          new_state = move(moved, from: elevator, to: dest)
+          new_state[dest].legal?
+        }
+        missing_legal = orig_legal - claimed_legal
+        illegal = claimed_legal - orig_legal
+        unless illegal.empty? && missing_legal.empty?
+          puts "WRONG MOVES state #{self} from #{elevator} to #{dest}!!!"
+          unless illegal.empty?
+            puts "    Illegal moves #{illegal}"
+          end
+          unless missing_legal.empty?
+            puts "    Missing legal moves #{missing_legal}"
+          end
+        end
       }
     }
+  end
+
+  def legal?
+    chips, gens = partition { |x| x & TYPE_MASK == CHIP }
+    gens.empty? || chips.all? { |c| gens.include?(c | GENERATOR) }
   end
 
   def pairs
