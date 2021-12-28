@@ -19,87 +19,30 @@ module State; refine Array do
     # We can't move an A chip and B generator together,
     # because the A chip will certainly get fried.
     # So, our choices for twos: two chips or two generators or a pair.
+    two_choices = chips.combination(2).to_a
 
     # If there is a pair, it doesn't matter which one.
     paired_chip = chips.find { |c| gens.include?(c | GENERATOR) }
-    pair = paired_chip && [paired_chip, paired_chip | GENERATOR]
+    two_choices << [paired_chip, paired_chip | GENERATOR] if paired_chip
 
     unpaired_gens = gens.reject { |g| chips.include?(g & ~GENERATOR) }
 
     # If there's a paired generator plus any other,
     # we can't move the paired generator out alone.
-    movable_gens1 = (gens.size == 1 ? gens : unpaired_gens).freeze
+    one_choices = chips + (gens.size == 1 ? gens : unpaired_gens)
 
     # Considerations for moving two generators:
-    # If there are two generators, we can always move them both out.
-    # If there is one generator, combination(2) will be empty.
-    # If there are 3+ generators, no paired generator can move.
-    movable_gens2 = gens.size == 2 ? [gens] : unpaired_gens.combination(2).to_a
-    movable_gens2.freeze
+    two_choices.concat(
+      # If there are two generators, we can always move them both out.
+      # If there is one generator, combination(2) will be empty.
+      # If there are 3+ generators, no paired generator can move.
+      gens.size == 2 ? [gens] : unpaired_gens.combination(2).to_a
+    )
 
     destinations = [elevator - 1, elevator + 1].select { |f| 0 <= f && f < size }
 
-    destinations.flat_map { |dest|
-      dest_chips, dest_gens = self[dest].partition { |x| x & TYPE_MASK == CHIP }
-      unpaired_chips = dest_chips.reject { |c|
-        dest_gens.include?(c | GENERATOR)
-      }
-
-      # If the destination floor has generators,
-      # we can only move the corresponding chips in.
-      movable_chips = dest_gens.empty? ? chips : chips.select { |c|
-        dest_gens.include?(c | GENERATOR)
-      }
-
-      dest_gens1, dest_gens2 =
-        case unpaired_chips.size
-        when 0; [movable_gens1, movable_gens2]
-        when 1
-          gen = unpaired_chips[0] | GENERATOR
-          # We must move the unpaired chip's generator in.
-          movable_by_itself = movable_gens1.include?(gen)
-          [
-            # That generator can move in by itself if it was movable by itself.
-            movable_by_itself ? [gen] : [],
-            # Moves for which that generator can move in with another:
-            if movable_by_itself
-              if gens.size == 2
-                # Note that the other generator may not have been movable by itself:
-                # It may have been a pair on the source floor,
-                # in which case moving it by itself would cause its chip to fry,
-                # but moving both the generators together solves that problem.
-                [gens]
-              else
-                # move it with all the other gens that would have been movable by themselves.
-                (movable_gens1 - [gen]).map { |g| [g, gen] }
-              end
-            else
-              []
-            end
-          ]
-        when 2
-          needed_gens = unpaired_chips.map { |c| c | GENERATOR }
-          # We must move both unpaired chips' generators in.
-          # They are unpaired on the source floor,
-          # so this does not conflict with the above logic for movable_gens2.
-          [
-            [],
-            needed_gens.all? { |g| gens.include?(g) } ? [needed_gens] : [],
-          ]
-        else
-          # No matter what we do, no generators are moving to this floor.
-          [[], []]
-        end
-
-      two_choices = movable_chips.combination(2).to_a + dest_gens2
-      one_choices = movable_chips + dest_gens1
-
-      # If there are unpaired chips, the pair's generator will fry them.
-      two_choices << pair if pair && unpaired_chips.empty?
-
-      (two_choices + one_choices.map { |item| [item] }).map { |moved|
-        [moved, dest, moved.size * (dest - elevator)]
-      }
+    (two_choices + one_choices.map { |item| [item] }).flat_map { |moved|
+      destinations.map { |dest| [moved, dest, moved.size * (dest - elevator)] }
     }
   end
 
@@ -124,7 +67,15 @@ module State; refine Array do
   end
 end end
 
+module Floor; refine Array do
+  def legal?
+    chips, gens = partition { |x| x & TYPE_MASK == CHIP }
+    gens.empty? || chips.all? { |c| gens.include?(c | GENERATOR) }
+  end
+end end
+
 using State
+using Floor
 
 def moves_to_assemble(input, verbose: false, list_moves: false)
   # moves, state, floor
@@ -173,6 +124,8 @@ def moves_to_assemble(input, verbose: false, list_moves: false)
 
         return prev_moves.reverse << [moved_items, floor_moved_to]
       end
+
+      next unless new_state[floor_moved_to].legal?
 
       # Set ratings BEFORE pruning seen states.
       # If you can reach a seen state with a +2 move,
